@@ -1,0 +1,40 @@
+{
+  "name": "cartes-sur-table",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:seed:offline": "tsx scripts/seed.ts --offline",
+    "rarity:recompute": "tsx scripts/recompute-rarity.ts",
+    "images:fetch": "tsx scripts/fetch-images.ts",
+    "give-all": "tsx scripts/give-all.ts",
+    "setup": "npm run db:migrate && npm run db:seed"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.18.0",
+    "bcryptjs": "3.0.3",
+    "drizzle-orm": "^0.45.3",
+    "jose": "6.2.12",
+    "next": "15.5.27",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.11",
+    "tsx": "^4",
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18.18"
+  }
+}
