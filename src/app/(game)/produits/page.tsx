@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api, GameCard, Modal, RarityBadge, RarityTag, Thumb, useGame } from "@/components/ui";
 import { CanIcon } from "@/components/icons";
 import { Assembly } from "@/components/Assembly";
+import { IngredientSources } from "@/components/IngredientSources";
 
 type Ing = { id: string; name: string; rarity: string; imageUrl: string | null; have: number };
 type Product = { code: string; name: string; brand: string | null; imageUrl: string | null; rarity: string; popularity: number; missing: number; total: number; owned: number; ingredients: Ing[] };
@@ -98,7 +99,7 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {selected && <ProductMenu product={selected} onClose={() => setSelected(null)} onCraft={craft} />}
+      {selected && <ProductMenu product={selected} onClose={() => setSelected(null)} onCraft={craft} onChanged={load} />}
 
       {crafted && (
         <Assembly
@@ -115,11 +116,26 @@ export default function ProductsPage() {
 }
 
 /** Sous-menu d'un produit : ingrédients possédés / manquants et quantité à fabriquer. */
-function ProductMenu({ product: p, onClose, onCraft }: { product: Product; onClose: () => void; onCraft: (p: Product, qty: number) => Promise<void> }) {
+function ProductMenu({ product, onClose, onCraft, onChanged }: { product: Product; onClose: () => void; onCraft: (p: Product, qty: number) => Promise<void>; onChanged: () => void }) {
+  const [p, setP] = useState(product);
+  const [focus, setFocus] = useState<string | null>(null);
   const max = maxCraftable(p);
   const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
   const missing = p.ingredients.filter((i) => i.have < 1);
+
+  // Après un achat depuis le panneau « Où trouver ? » : quantités possédées à jour
+  const refresh = async () => {
+    onChanged();
+    try {
+      const r = await api<{ ingredients: Ing[] }>(`/api/catalog/product/${encodeURIComponent(p.code)}`);
+      const have = new Map(r.ingredients.map((i) => [i.id, i.have]));
+      setP((cur) => {
+        const ingredients = cur.ingredients.map((i) => ({ ...i, have: have.get(i.id) ?? i.have }));
+        return { ...cur, ingredients, missing: ingredients.filter((i) => i.have < 1).length };
+      });
+    } catch { /* le panneau a déjà signalé l'erreur éventuelle */ }
+  };
 
   const submit = async () => {
     setBusy(true);
@@ -142,15 +158,25 @@ function ProductMenu({ product: p, onClose, onCraft }: { product: Product; onClo
       </div>
 
       <div>
-        <h3 style={{ marginBottom: 10 }}>Recette</h3>
+        <h3 style={{ marginBottom: 4 }}>Recette</h3>
+        <p className="muted" style={{ margin: "0 0 10px", fontSize: ".85rem" }}>Touche un ingrédient pour voir s&apos;il est en vente sur le marché ou si un ami l&apos;a.</p>
         <div className="mini-grid">
           {p.ingredients.map((i) => (
-            <div key={i.id} className={i.have < 1 ? "mini-missing" : ""} title={i.have < 1 ? "Manquant" : `${i.have} en stock`}>
+            <button
+              key={i.id}
+              type="button"
+              className={`mini-pick ${i.have < 1 ? "mini-missing" : ""} ${focus === i.id ? "on" : ""}`}
+              title={i.have < 1 ? "Manquant — où le trouver ?" : `${i.have} en stock — où en trouver d'autres ?`}
+              aria-pressed={focus === i.id}
+              onClick={() => setFocus(focus === i.id ? null : i.id)}
+            >
               <GameCard ing={i} qty={i.have} />
-            </div>
+            </button>
           ))}
         </div>
       </div>
+
+      {focus && <IngredientSources key={focus} id={focus} onClose={() => setFocus(null)} onChanged={refresh} />}
 
       {missing.length > 0 ? (
         <p className="muted" style={{ margin: 0 }}>

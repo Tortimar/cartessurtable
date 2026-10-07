@@ -252,7 +252,7 @@ export async function getMarket(userId: string, opts: { q?: string; rarity?: str
 
 const PAGE_SIZE = 24;
 
-export async function getProducts(userId: string, opts: { q?: string; filter?: string; page: number }) {
+export async function getProducts(userId: string, opts: { q?: string; filter?: string; ingredient?: string; page: number }) {
   // Nombre d'ingrédients manquants calculé en SQL pour trier « le plus proche d'être fabricable »
   const missingExpr = sql<number>`(
     select count(*) from ${S.productIngredients} pi
@@ -265,6 +265,8 @@ export async function getProducts(userId: string, opts: { q?: string; filter?: s
   if (opts.q) where.push(like(S.products.name, `%${opts.q}%`));
   if (opts.filter === "craftable") where.push(sql`${missingExpr} = 0`);
   if (opts.filter === "owned") where.push(sql`${ownedExpr} > 0`);
+  // Produits qui contiennent un ingrédient donné (sous-menu de construction d'usine)
+  if (opts.ingredient) where.push(sql`exists (select 1 from ${S.productIngredients} pi where pi.product_code = ${S.products.code} and pi.ingredient_id = ${opts.ingredient})`);
 
   const rows = await db
     .select({ code: S.products.code, name: S.products.name, brand: S.products.brand, imageUrl: S.products.imageUrl, rarity: S.products.rarity, popularity: S.products.popularity, missing: missingExpr, total: totalExpr, owned: ownedExpr })
@@ -360,7 +362,8 @@ export async function getFactories(userId: string) {
       const available = o.products.reduce((n, p) => n + p.quantity, 0);
       return { ...o, available, canBuild: available >= FACTORY_PRODUCT_COST, intervalSec: FACTORY_INTERVAL_SEC[rarity], yieldPerHour: factoryYield(FACTORY_INTERVAL_SEC[rarity], 1, rarity) };
     })
-    .sort((a, b) => Number(b.canBuild) - Number(a.canBuild) || b.yieldPerHour - a.yieldPerHour || a.name.localeCompare(b.name));
+    // Les plus avancées d'abord : 3/3, puis 2/3, puis 1/3 ; à égalité, la plus rentable
+    .sort((a, b) => Math.min(b.available, FACTORY_PRODUCT_COST) - Math.min(a.available, FACTORY_PRODUCT_COST) || b.yieldPerHour - a.yieldPerHour || a.name.localeCompare(b.name));
 
   const product = await getProductFactories(userId, factories, me.coins, now);
 

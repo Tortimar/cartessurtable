@@ -22,6 +22,7 @@ export default function TradesPage() {
   const [data, setData] = useState<Data | null>(null);
   const [friends, setFriends] = useState<Friend[] | null>(null);
   const [composeFor, setComposeFor] = useState<string | null | undefined>(undefined); // undefined = fermé
+  const [wanted, setWanted] = useState<string | null>(null); // ingrédient demandé d'avance (?ing=…)
 
   const load = useCallback(() => api<Data>("/api/trades").then(setData).catch((e: Error) => toast(e.message, "error")), [toast]);
   useEffect(() => {
@@ -29,8 +30,9 @@ export default function TradesPage() {
     api<{ friends: Friend[] }>("/api/friends").then((r) => setFriends(r.friends)).catch(() => setFriends([]));
     const t = setInterval(load, 20_000);
     // Ouverture directe depuis la page Amis : /echanges?ami=pseudo
-    const ami = new URLSearchParams(window.location.search).get("ami");
-    if (ami) setComposeFor(ami);
+    const params = new URLSearchParams(window.location.search);
+    const ami = params.get("ami");
+    if (ami) { setComposeFor(ami); setWanted(params.get("ing")); }
     return () => clearInterval(t);
   }, [load]);
 
@@ -103,8 +105,9 @@ export default function TradesPage() {
         <Composer
           friends={friends}
           initial={composeFor}
-          onClose={() => setComposeFor(undefined)}
-          onSent={() => { setComposeFor(undefined); refresh(); }}
+          wanted={wanted}
+          onClose={() => { setComposeFor(undefined); setWanted(null); }}
+          onSent={() => { setComposeFor(undefined); setWanted(null); refresh(); }}
         />
       )}
     </>
@@ -155,7 +158,7 @@ function TradeCard({ t, children, compact }: { t: Trade; children: React.ReactNo
 
 type Pick = Record<string, { item: Card & { kind: Item["kind"] }; quantity: number; max: number }>;
 
-function Composer({ friends, initial, onClose, onSent }: { friends: Friend[]; initial: string | null; onClose: () => void; onSent: () => void }) {
+function Composer({ friends, initial, wanted, onClose, onSent }: { friends: Friend[]; initial: string | null; wanted?: string | null; onClose: () => void; onSent: () => void }) {
   const { run, toast } = useGame();
   const [friendId, setFriendId] = useState<string>(() => friends.find((f) => f.username === initial)?.id ?? friends[0]?.id ?? "");
   const [mine, setMine] = useState<Inventory | null>(null);
@@ -173,8 +176,18 @@ function Composer({ friends, initial, onClose, onSent }: { friends: Friend[]; in
     if (!friendId) return;
     setTheirs(null);
     setRequest({});
-    api<Inventory>(`/api/trades/inventory?user=${encodeURIComponent(friendId)}`).then(setTheirs).catch((e: Error) => toast(e.message, "error"));
-  }, [friendId, toast]);
+    api<Inventory>(`/api/trades/inventory?user=${encodeURIComponent(friendId)}`)
+      .then((inv) => {
+        setTheirs(inv);
+        // Arrivée depuis « Où trouver cet ingrédient ? » : la carte voulue est déjà dans la demande
+        const w = wanted && inv.username === initial ? inv.ingredients.find((c) => c.id === wanted) : undefined;
+        if (w) {
+          setRequest({ [`INGREDIENT:${w.id}`]: { item: { ...w, kind: "INGREDIENT" }, quantity: 1, max: w.quantity } });
+          setTab("get");
+        }
+      })
+      .catch((e: Error) => toast(e.message, "error"));
+  }, [friendId, toast, wanted, initial]);
 
   const friend = friends.find((f) => f.id === friendId);
   const toLines = (p: Pick) => Object.values(p).map((x) => ({ kind: x.item.kind, id: x.item.id, quantity: x.quantity }));

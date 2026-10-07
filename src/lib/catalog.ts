@@ -1,8 +1,10 @@
 import "server-only";
-import { and, asc, desc, eq, sql, type AnyColumn, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, gt, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { fail } from "./api";
-import { RARITIES } from "./game";
+import { minNextBid, RARITIES } from "./game";
+import { settleAuctions } from "./services";
+import { friendIds } from "./social";
 
 const S = schema;
 const PAGE_SIZE = 48;
@@ -140,4 +142,49 @@ export async function getProductCard(userId: string, code: string) {
     .where(eq(S.productIngredients.productCode, code))
     .orderBy(desc(rarityRank(S.ingredients.rarity)), asc(S.ingredients.name));
   return { product: p, ingredients };
+}
+
+/** Où trouver un ingrédient : offres du marché en cours et amis qui possèdent la carte. */
+export async function getIngredientSources(userId: string, id: string) {
+  await settleAuctions();
+  const [ing] = await db
+    .select({ id: S.ingredients.id, name: S.ingredients.name, rarity: S.ingredients.rarity, imageUrl: S.ingredients.imageUrl, baseValue: S.ingredients.baseValue, have: sql<number>`coalesce(${S.userIngredients.quantity}, 0)` })
+    .from(S.ingredients)
+    .leftJoin(S.userIngredients, and(eq(S.userIngredients.ingredientId, S.ingredients.id), eq(S.userIngredients.userId, userId)))
+    .where(eq(S.ingredients.id, id));
+  if (!ing) fail("Ingrédient inconnu", 404);
+
+  const listings = await db
+    .select({ id: S.listings.id, quantity: S.listings.quantity, unitPrice: S.listings.unitPrice, seller: S.users.username, mine: sql<number>`${S.listings.sellerId} = ${userId}` })
+    .from(S.listings)
+    .innerJoin(S.users, eq(S.users.id, S.listings.sellerId))
+    .where(and(eq(S.listings.ingredientId, id), eq(S.listings.status, "OPEN")))
+    .orderBy(asc(S.listings.unitPrice))
+    .limit(20);
+
+  const auctions = await db
+    .select({ id: S.auctions.id, quantity: S.auctions.quantity, startPrice: S.auctions.startPrice, currentBid: S.auctions.currentBid, endsAt: S.auctions.endsAt, seller: S.users.username, mine: sql<number>`${S.auctions.sellerId} = ${userId}`, leading: sql<number>`coalesce(${S.auctions.leaderId} = ${userId}, 0)` })
+    .from(S.auctions)
+    .innerJoin(S.users, eq(S.users.id, S.auctions.sellerId))
+    .where(and(eq(S.auctions.ingredientId, id), eq(S.auctions.status, "OPEN")))
+    .orderBy(asc(S.auctions.endsAt))
+    .limit(20);
+
+  const ids = [...(await friendIds(userId))];
+  const friends = ids.length
+    ? await db
+        .select({ id: S.users.id, username: S.users.username, quantity: S.userIngredients.quantity })
+        .from(S.userIngredients)
+        .innerJoin(S.users, eq(S.users.id, S.userIngredients.userId))
+        .where(and(eq(S.userIngredients.ingredientId, id), inArray(S.userIngredients.userId, ids), gt(S.userIngredients.quantity, 0)))
+        .orderBy(desc(S.userIngredients.quantity), asc(S.users.username))
+    : [];
+
+  return {
+    ingredient: ing,
+    listings: listings.map((l) => ({ ...l, mine: !!l.mine })),
+    auctions: auctions.map((a) => ({ ...a, mine: !!a.mine, leading: !!a.leading, minBid: minNextBid(a.startPrice, a.currentBid) })),
+    friends,
+    friendCount: ids.length,
+  };
 }

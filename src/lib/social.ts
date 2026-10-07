@@ -43,7 +43,7 @@ async function allScores() {
 
 const EMPTY: ScoreInfo = { score: 0, factories: 0, best: null };
 
-async function friendIds(userId: string) {
+export async function friendIds(userId: string) {
   const rows = await db
     .select({ a: S.friendships.requesterId, b: S.friendships.addresseeId })
     .from(S.friendships)

@@ -706,7 +706,7 @@ h1 { font-weight: 600; }
 /* Filigrane illustré de chaque page */
 .container { position: relative; }
 .page-decor { position: absolute; z-index: -1; top: 4px; right: 12px; width: 140px; height: 140px; color: rgba(244,228,200,.13); --decor-accent: rgba(212,73,42,.5); pointer-events: none; transform: rotate(-4deg); }
-@media (max-width: 900px) { .page-decor { width: 110px; height: 110px; top: 4px; right: 0; opacity: .7; } }
+@media (max-width: 900px) { .page-decor { width: 110px; height: 110px; top: 4px; right: 12px; opacity: .7; } }
 @media (max-width: 520px) { .page-decor { display: none; } }
 
 /* Panneaux : planche posée sur la table */
@@ -765,3 +765,62 @@ h1 { font-weight: 600; }
 }
 @media (max-width: 400px) { .nav .logo-text { display: none; } }
 @media (min-width: 901px) and (max-width: 1100px) { .nav .logo-text { display: none; } }
+
+/* ═════════ Recette : « Où trouver cet ingrédient ? » ═════════ */
+.mini-pick { display: block; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: inherit; cursor: pointer; border-radius: 14px; }
+.mini-pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.mini-pick.on { outline: 3px solid var(--accent); outline-offset: 3px; }
+.mini-pick.on.mini-missing { opacity: .75; filter: grayscale(.3); }
+.mini-pick:hover .card { transform: translateY(-2px); }
+.sources { border: 1px solid var(--line-hi); background: var(--surface-2); border-radius: 12px; padding: 12px 14px; display: grid; gap: 12px; animation: rise .18s ease-out; scroll-margin: 16px; }
+.sources-head { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+.sources-title { font-family: var(--font-display); font-weight: 600; font-size: 1.02rem; }
+.sources-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.sources h4 { margin: 0 0 6px; font-size: .88rem; font-weight: 700; color: var(--muted); }
+.sources-list { display: grid; gap: 6px; }
+.source-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border-radius: 9px; background: var(--surface); border: 1px solid var(--line); }
+.source-main { display: grid; font-size: .88rem; min-width: 0; }
+.source-main .muted { font-size: .78rem; }
+.source-friend { display: flex; align-items: center; gap: 8px; }
+.source-row .btn { flex-shrink: 0; }
+.sources-empty { margin: 0; font-size: .85rem; line-height: 1.45; }
+@media (max-width: 760px) {
+  .sources { padding: 10px; }
+  .sources-cols { grid-template-columns: 1fr; gap: 12px; }
+  .source-row { flex-wrap: wrap; }
+  .source-row .btn { flex: 1 0 auto; }
+}
+
+/* ═════════ Usines : sous-menu de construction ═════════ */
+.row.clickable { cursor: pointer; }
+.row.clickable:hover { border-color: var(--line-hi); }
+.row.clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.progress-tag { display: inline-grid; place-items: center; min-width: 42px; padding: 3px 8px; border-radius: 999px; font-weight: 800; font-size: .8rem; font-variant-numeric: tabular-nums; background: var(--surface-3); color: var(--muted); }
+.progress-tag.done { background: rgba(150,194,94,.18); color: var(--basil); }
+.menu-sub { font-size: 1rem; margin: 4px 0 8px; display: flex; align-items: center; gap: 8px; }
+.candidate { display: grid; gap: 8px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; }
+.candidate-main { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
+.candidate-missing { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .82rem; }
+.chip-btn { cursor: pointer; color: inherit; font: inherit; font-size: .78rem; font-weight: 600; }
+.chip-btn:hover, .chip-btn.on { border-color: var(--accent); background: rgba(var(--accent-rgb),.12); }
+
+/* ═════════ Marché : offres de la banque (étal de promotions) ═════════ */
+.bank { margin: 0 0 26px; padding: 16px 16px 18px; border-radius: 14px; border: 1px solid var(--line-hi); position: relative; overflow: hidden;
+  background: radial-gradient(500px 200px at 20% 0%, rgba(243,181,68,.12), transparent 70%), var(--surface); }
+.bank::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 6px;
+  background: repeating-linear-gradient(90deg, var(--accent-btn) 0 22px, var(--cream) 22px 44px); }
+.bank-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin: 4px 0 14px; }
+.bank-head h2 { margin: 0; }
+.bank-head p { margin: 4px 0 0; font-size: .88rem; }
+.bank-timer { font-weight: 500; }
+.bank-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+.bank-offer { position: relative; display: grid; gap: 8px; align-content: start; }
+.bank-offer.sold .card { filter: grayscale(.7) brightness(.7); }
+.promo { position: absolute; z-index: 5; top: -8px; right: -8px; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--gold); color: #4a2c14; font-family: var(--font-display); font-weight: 700; font-size: .92rem; transform: rotate(12deg);
+  box-shadow: 0 0 0 3px var(--accent-btn), 0 4px 10px rgba(0,0,0,.45); }
+.bank-price { display: flex; justify-content: center; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
+.bank-price s { color: var(--muted); font-size: .85rem; }
+.bank-price b { color: var(--gold); font-size: 1.1rem; display: inline-flex; align-items: center; gap: 4px; }
+@media (max-width: 1000px) { .bank-strip { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 168px; overflow-x: auto; padding: 10px 6px 6px; scroll-snap-type: x mandatory; } .bank-offer { scroll-snap-align: start; } }
+@media (max-width: 760px) { .bank { padding: 14px 10px 14px; margin-bottom: 20px; } .bank-strip { grid-auto-columns: 46%; gap: 10px; } .promo { width: 46px; height: 46px; font-size: .82rem; right: -4px; } }

@@ -189,3 +189,10 @@ export function minNextBid(startPrice: number, currentBid: number | null) {
   if (currentBid == null) return startPrice;
   return currentBid + Math.max(1, Math.ceil((currentBid * MIN_BID_INCREMENT_PCT) / 100));
 }
+
+/* Offres de la banque (marché) : produits au hasard, renouvelés toutes les heures */
+export const BANK_OFFER_COUNT = 5;
+export const BANK_PRODUCT_PRICE = 500; // prix de base d'un produit
+export const BANK_MAX_DISCOUNT = 80; // réduction tirée au hasard entre 0 et 80 %
+export const BANK_ROTATION_MS = 60 * 60_000;
+export const bankPrice = (discount: number) => Math.max(1, Math.round((BANK_PRODUCT_PRICE * (100 - discount)) / 100));

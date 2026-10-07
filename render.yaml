@@ -1,0 +1,19 @@
+# Blueprint Render : crée le service web « cartes-sur-table » (Render → New → Blueprint).
+# La base de données est hébergée chez Turso (le disque des services Render gratuits est effacé à chaque redémarrage).
+services:
+  - type: web
+    name: cartes-sur-table
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false # à saisir : libsql://<ta-base>.turso.io
+      - key: DATABASE_AUTH_TOKEN
+        sync: false # à saisir : jeton créé dans le tableau de bord Turso

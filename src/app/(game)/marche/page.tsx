@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, fmtMs, RarityFilter, RarityTag, Thumb, useCountdown, useGame } from "@/components/ui";
 import { CoinIcon } from "@/components/icons";
+import { BankOffers } from "@/components/BankOffers";
 
 type Listing = { id: string; ingredientId: string; ingredientName: string; rarity: string; baseValue: number; imageUrl: string | null; quantity: number; unitPrice: number; seller: string; mine: boolean };
 type Auction = { id: string; ingredientId: string; ingredientName: string; rarity: string; baseValue: number; imageUrl: string | null; quantity: number; startPrice: number; currentBid: number | null; minBid: number; endsAt: string; seller: string; leader: string | null; mine: boolean; leading: boolean };
@@ -14,7 +15,11 @@ export default function MarketPage() {
   const [onlyMine, setOnlyMine] = useState(false);
   const [q, setQ] = useState("");
   // Recherche pré-remplie quand on arrive depuis une fiche (?q=…)
-  useEffect(() => { const v = new URLSearchParams(window.location.search).get("q"); if (v) setQ(v); }, []);
+  useEffect(() => {
+    const u = new URLSearchParams(window.location.search);
+    const v = u.get("q"); if (v) setQ(v);
+    if (u.get("tab") === "encheres") setTab("auctions");
+  }, []);
   const [rarity, setRarity] = useState("");
   const [data, setData] = useState<Data | null>(null);
 
@@ -49,13 +54,15 @@ export default function MarketPage() {
       <div className="page-head">
         <div>
           <h1>Marché</h1>
-          <p>Achète les ingrédients des autres joueurs ou enchéris sur leurs lots. Pour vendre, passe par ta collection.</p>
+          <p>Profite des offres de la banque, achète les ingrédients des autres joueurs ou enchéris sur leurs lots. Pour vendre, passe par ta collection.</p>
         </div>
         <div className="tabs">
           <button className={tab === "listings" ? "on" : ""} onClick={() => setTab("listings")}>Achat immédiat {data && `(${data.listings.length})`}</button>
           <button className={tab === "auctions" ? "on" : ""} onClick={() => setTab("auctions")}>Enchères {data && `(${data.auctions.length})`}</button>
         </div>
       </div>
+
+      <BankOffers />
 
       <div className="toolbar">
         <input className="input" placeholder="Rechercher un ingrédient…" value={q} onChange={(e) => setQ(e.target.value)} />

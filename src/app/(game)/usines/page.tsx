@@ -5,7 +5,8 @@ import Link from "next/link";
 import { api, fmtInterval, fmtMs, GameCard, Modal, RarityBadge, RarityTag, Thumb, useCountdown, useGame } from "@/components/ui";
 import { CanIcon, CoinIcon } from "@/components/icons";
 import { Assembly } from "@/components/Assembly";
-import { playLevelUp } from "@/lib/sound";
+import { playCraftDone, playLevelUp } from "@/lib/sound";
+import { IngredientSources } from "@/components/IngredientSources";
 import { factoryInterval, productFactoryBaseInterval, productFactoryYield, YIELD_POINTS, type Rarity } from "@/lib/game";
 
 type Upgrade = { coins: number; cards: number; nextLevel: number; nextInterval: number; nextCapacity: number; nextYield: number; affordable: boolean };
@@ -39,7 +40,7 @@ const fmtPts = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits:
 export default function FactoriesPage() {
   const { run, toast } = useGame();
   const [data, setData] = useState<Data | null>(null);
-  const [building, setBuilding] = useState<Option | null>(null);
+  const [building, setBuilding] = useState<string | null>(null); // ingrédient dont le sous-menu est ouvert
   const [built, setBuilt] = useState<Built | null>(null);
   const [leveling, setLeveling] = useState<string | null>(null);
   const [fusing, setFusing] = useState<FusionOption | null>(null);
@@ -77,6 +78,7 @@ export default function FactoriesPage() {
     load();
   };
 
+  const buildingOption = building ? data?.options.find((o) => o.id === building) : undefined;
   const totalPerHour = data ? [...data.factories, ...data.productFactories].reduce((n, f) => n + 3600 / f.interval, 0) : 0;
   const factoryCount = data ? data.factories.length + data.productFactories.length : 0;
 
@@ -151,14 +153,15 @@ export default function FactoriesPage() {
       {data && data.options.length === 0 && <div className="empty">Il te faut des produits fabriqués. Rends-toi dans <Link href="/produits">Produits</Link>.</div>}
       <div className="rows">
         {data?.options.map((o) => (
-          <div key={o.id} className="row">
+          <div key={o.id} className="row clickable" role="button" tabIndex={0} onClick={() => setBuilding(o.id)} onKeyDown={(e) => e.key === "Enter" && setBuilding(o.id)} aria-label={`Usine à ${o.name}`}>
             <Thumb ing={o} />
             <div>
               <div className="row-title">{o.name} <RarityTag rarity={o.rarity} /></div>
               <div className="row-meta">1 carte / {fmtInterval(o.intervalSec)} · rendement niveau 1 : <b style={{ color: "var(--gold)" }}>{fmtPts(o.yieldPerHour)} pts/h</b> · {o.available} produit{o.available > 1 ? "s" : ""} éligible{o.available > 1 ? "s" : ""}</div>
             </div>
             <div className="row-side">
-              <button className="btn btn-sm btn-primary" disabled={!o.canBuild} onClick={() => setBuilding(o)}>{o.canBuild ? "Choisir les produits" : `${o.available}/${data.cost}`}</button>
+              <span className={`progress-tag ${o.canBuild ? "done" : ""}`}>{Math.min(o.available, data.cost)}/{data.cost}</span>
+              <button className={`btn btn-sm ${o.canBuild ? "btn-primary" : ""}`} onClick={(e) => { e.stopPropagation(); setBuilding(o.id); }}>{o.canBuild ? "Construire" : "Compléter"}</button>
             </div>
           </div>
         ))}
@@ -184,7 +187,7 @@ export default function FactoriesPage() {
         />
       )}
 
-      {building && data && <BuildMenu option={building} cost={data.cost} onClose={() => setBuilding(null)} onBuild={build} />}
+      {buildingOption && data && <BuildMenu key={buildingOption.id} option={buildingOption} cost={data.cost} onClose={() => setBuilding(null)} onBuild={build} onCrafted={load} />}
 
       {built && (
         <Assembly
@@ -264,7 +267,7 @@ function FactorySlot({ f, card, kind, base, unit = "carte", maxLevel, leveling, 
 }
 
 /** Sous-menu de construction : le joueur choisit exactement les produits à sacrifier. */
-function BuildMenu({ option, cost, onClose, onBuild }: { option: Option; cost: number; onClose: () => void; onBuild: (o: Option, sel: { product: OwnedProduct; quantity: number }[]) => Promise<void> }) {
+function BuildMenu({ option, cost, onClose, onBuild, onCrafted }: { option: Option; cost: number; onClose: () => void; onBuild: (o: Option, sel: { product: OwnedProduct; quantity: number }[]) => Promise<void>; onCrafted: () => void }) {
   const [picks, setPicks] = useState<Record<string, number>>({});
   const [busy, setBusy] = useState(false);
   const total = Object.values(picks).reduce((a, b) => a + b, 0);
@@ -301,7 +304,11 @@ function BuildMenu({ option, cost, onClose, onBuild }: { option: Option; cost: n
             <span className="pill">1 carte / {fmtInterval(option.intervalSec)}</span>
             <span className="pill" style={{ color: "var(--gold)" }}>{fmtPts(option.yieldPerHour)} pts/h</span>
           </div>
-          <div className="muted" style={{ fontSize: ".88rem", marginTop: 6 }}>Choisis {cost} produits contenant « {option.name} ». Ils seront détruits.</div>
+          <div className="muted" style={{ fontSize: ".88rem", marginTop: 6 }}>
+            {option.canBuild
+              ? <>Choisis {cost} produits contenant « {option.name} ». Ils seront détruits.</>
+              : <>Il te manque <b style={{ color: "var(--text)" }}>{cost - option.available} produit{cost - option.available > 1 ? "s" : ""}</b> contenant « {option.name} » : fabrique-{cost - option.available > 1 ? "les" : "le"} ci-dessous.</>}
+          </div>
         </div>
       </div>
 
@@ -319,12 +326,13 @@ function BuildMenu({ option, cost, onClose, onBuild }: { option: Option; cost: n
         <div>
           <b>{total}/{cost}</b> <span className="muted">sélectionné{total > 1 ? "s" : ""}</span>
           <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-            <button className="btn btn-sm" onClick={autoFill}>Remplir automatiquement</button>
+            <button className="btn btn-sm" disabled={!option.canBuild} onClick={autoFill}>Remplir automatiquement</button>
             {total > 0 && <button className="btn btn-sm btn-ghost" onClick={() => setPicks({})}>Vider</button>}
           </div>
         </div>
       </div>
 
+      <h3 className="menu-sub">Tes produits éligibles <span className="count">{option.available}</span></h3>
       <div style={{ display: "grid", gap: 8 }}>
         {option.products.map((p) => {
           const n = picks[p.code] ?? 0;
@@ -345,8 +353,10 @@ function BuildMenu({ option, cost, onClose, onBuild }: { option: Option; cost: n
         })}
       </div>
 
+      <Craftables ingredient={option} onCrafted={onCrafted} />
+
       <div className="toolbar" style={{ justifyContent: "flex-end", marginBottom: 0 }}>
-        <button className="btn btn-ghost" onClick={onClose}>Annuler</button>
+        <button className="btn btn-ghost" onClick={onClose}>Fermer</button>
         <button className="btn btn-primary" disabled={busy || total !== cost} onClick={submit}>Construire l&apos;usine</button>
       </div>
     </Modal>
@@ -411,5 +421,78 @@ function FusionMenu({ option, bonus, onClose, onFuse }: { option: FusionOption; 
         <button className="btn btn-primary" disabled={busy || chosen.length !== option.total} onClick={submit}>Fusionner les {option.total} usines</button>
       </div>
     </Modal>
+  );
+}
+
+type Candidate = { code: string; name: string; brand: string | null; imageUrl: string | null; rarity: string; missing: number; total: number; owned: number; ingredients: { id: string; name: string; rarity: string; imageUrl: string | null; have: number }[] };
+
+/** Produits contenant l'ingrédient, du plus proche d'être fabricable au plus lointain. */
+function Craftables({ ingredient, onCrafted }: { ingredient: { id: string; name: string }; onCrafted: () => void }) {
+  const { run, toast } = useGame();
+  const [list, setList] = useState<Candidate[] | null>(null);
+  const [all, setAll] = useState(false);
+  const [focus, setFocus] = useState<{ code: string; id: string } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(
+    () => api<{ products: Candidate[] }>(`/api/products?ingredient=${encodeURIComponent(ingredient.id)}`).then((r) => setList(r.products)).catch((e: Error) => toast(e.message, "error")),
+    [ingredient.id, toast],
+  );
+  useEffect(() => { load(); }, [load]);
+
+  const craft = async (c: Candidate) => {
+    setBusy(c.code);
+    const ok = await run(() => api(`/api/products/${encodeURIComponent(c.code)}/craft`, { body: { quantity: 1 } }), `« ${c.name} » fabriqué : +1 produit éligible`);
+    setBusy(null);
+    if (ok === undefined) return;
+    playCraftDone();
+    load();
+    onCrafted();
+  };
+
+  const shown = (list ?? []).slice(0, all ? undefined : 8);
+  return (
+    <div>
+      <h3 className="menu-sub">Produits à fabriquer avec « {ingredient.name} »</h3>
+      <p className="muted" style={{ margin: "0 0 8px", fontSize: ".85rem" }}>Les plus proches d&apos;être fabricables d&apos;abord. Touche un ingrédient manquant pour voir où le trouver.</p>
+      {!list && <div className="muted">Chargement…</div>}
+      {list && list.length === 0 && <div className="muted">Aucun produit ne contient cet ingrédient.</div>}
+      <div className="rows">
+        {shown.map((c) => {
+          const missing = c.ingredients.filter((i) => i.have < 1);
+          return (
+            <div key={c.code} className="candidate">
+              <div className="candidate-main">
+                {c.imageUrl ? <img className="product-img" src={c.imageUrl} alt="" style={{ width: 40, height: 40 }} /> : <span className="product-img placeholder" style={{ width: 40, height: 40 }}><CanIcon size={22} /></span>}
+                <div style={{ minWidth: 0 }}>
+                  <div className="row-title">{c.name} <RarityTag rarity={c.rarity} /></div>
+                  <div className="row-meta">
+                    {c.missing === 0 ? <span className="tag me">Fabricable</span> : <>{c.total - c.missing}/{c.total} ingrédients</>}
+                    {c.owned > 0 && <> · possédé ×{c.owned}</>}
+                  </div>
+                </div>
+                {c.missing === 0
+                  ? <button className="btn btn-sm btn-primary" disabled={busy === c.code} onClick={() => craft(c)}>Fabriquer</button>
+                  : <span className="progress-tag">{c.total - c.missing}/{c.total}</span>}
+              </div>
+              {missing.length > 0 && (
+                <div className="candidate-missing">
+                  <span className="muted">Manque :</span>
+                  {missing.map((i) => (
+                    <button key={i.id} type="button" className={`chip chip-btn r-${i.rarity} ${focus?.code === c.code && focus.id === i.id ? "on" : ""}`} onClick={() => setFocus(focus?.code === c.code && focus.id === i.id ? null : { code: c.code, id: i.id })}>
+                      <Thumb ing={i} small /> {i.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {focus?.code === c.code && <IngredientSources key={focus.id} id={focus.id} onClose={() => setFocus(null)} onChanged={() => { load(); onCrafted(); }} />}
+            </div>
+          );
+        })}
+      </div>
+      {list && list.length > 8 && (
+        <button className="btn btn-sm btn-ghost" style={{ marginTop: 8 }} onClick={() => setAll(!all)}>{all ? "Voir moins" : `Voir les ${list.length} produits`}</button>
+      )}
+    </div>
   );
 }

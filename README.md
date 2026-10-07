@@ -24,7 +24,7 @@ npm run dev                 # http://localhost:3000
   - À la fin, un bilan liste les pages en échec et la commande pour ne relancer qu'elles : `npm run db:seed -- --pages=30,60`.
 - `npm run db:seed:offline` charge un petit jeu de 25 produits de démonstration (`scripts/sample-products.json`), utile sans connexion. Si l'API OFF est injoignable, le seed normal bascule automatiquement dessus.
 - `npm run rarity:recompute` recalcule toutes les raretés (après un import supplémentaire, par exemple).
-- `npm run images:fetch` cherche une photo pour les ingrédients qui n'en ont pas (lancé automatiquement par le seed). Ajoute `-- --all` pour retenter ceux restés sans photo.
+- `npm run images:fetch` cherche une photo pour les ingrédients qui n'en ont pas (lancé automatiquement par le seed). Les requêtes sont espacées et réessayées si un site limite le débit ; un ingrédient dont la recherche a échoué n'est pas marqué et sera retenté au lancement suivant. Ajoute `-- --all` pour retenter aussi ceux déjà vérifiés sans photo.
 - `npm run give-all -- <pseudo> [quantité]` **(test)** ajoute 1 exemplaire (ou la quantité indiquée) de chaque ingrédient au compte. Le compte doit déjà exister.
 - Après une modification de `src/db/schema.ts` : `npm run db:generate` puis `npm run db:migrate`.
 
@@ -59,10 +59,12 @@ Les produits reçoivent eux aussi une rareté, mais dans l'autre sens : les 3 % 
 - *Prix fixe* : les cartes sont mises sous séquestre à la publication, rendues si l'annonce est retirée.
 - *Enchères* : 10 min, 1 h, 6 h ou 24 h. Chaque surenchère doit dépasser l'offre en tête d'au moins 5 %. Les pièces du meilleur enchérisseur sont bloquées et rendues automatiquement s'il est dépassé. Une offre dans la dernière minute prolonge d'une minute (anti-sniping). Les enchères échues sont réglées à la première consultation du marché qui suit.
 
-**Fabrication** — consomme 1 carte de chaque ingrédient du produit, par exemplaire. Un clic sur un produit ouvre son sous-menu : recette (ingrédients possédés / manquants), quantité à fabriquer. Animation : les cartes ingrédients rejoignent le centre une à une, puis la carte produit apparaît, avec son.
+**Offres de la banque** — en haut du marché, 5 produits tirés au hasard, à 500 pièces avec une réduction aléatoire de 0 à 80 % (`BANK_*` dans `src/lib/game.ts`). Elles sont les mêmes pour tous les joueurs et changent à chaque heure pile (compte à rebours affiché) ; chaque joueur peut acheter chaque offre une fois. Les offres sont créées à la première consultation de l'heure (tables `bank_offers` et `bank_purchases`, migration 0006) et celles de plus de 48 h sont effacées.
+
+**Fabrication** — consomme 1 carte de chaque ingrédient du produit, par exemplaire. Un clic sur un produit ouvre son sous-menu : recette (ingrédients possédés / manquants), quantité à fabriquer. Un clic sur un ingrédient de la recette ouvre « Où trouver… ? » : les annonces du marché (achat direct, du moins cher au plus cher), les enchères en cours (lien vers l'onglet Enchères) et les amis qui possèdent la carte, avec un bouton qui ouvre une proposition d'échange où la carte est déjà demandée. Animation : les cartes ingrédients rejoignent le centre une à une, puis la carte produit apparaît, avec son.
 
 **Usines**
-- *Construction* : coûte 3 produits contenant l'ingrédient voulu. Le sous-menu de construction laisse choisir exactement quels produits sacrifier (ou « Remplir automatiquement »). Animation : les cartes produits fusionnent, puis la carte usine apparaît, avec son.
+- *Construction* : coûte 3 produits contenant l'ingrédient voulu. La liste est triée par progression (3/3, puis 2/3, puis 1/3 ; à égalité, la plus rentable). Un clic sur une ligne ouvre son sous-menu : les produits éligibles que tu possèdes, à choisir exactement (ou « Remplir automatiquement »), puis les produits contenant l'ingrédient, du plus proche d'être fabricable au plus lointain, avec un bouton « Fabriquer » quand tout est réuni et les ingrédients manquants cliquables (« Où trouver… ? »). Animation : les cartes produits fusionnent, puis la carte usine apparaît, avec son.
 - *Production* : selon la rareté de l'ingrédient (5 min → 12 h au niveau 1), stock plafonné. La progression du cycle en cours est conservée à la récolte.
 - *Niveaux* (1 à 10) : chaque niveau accélère la production de 25 % et ajoute 6 places de stock (niveau 10 : ×3,25 et 78 places). Passer du niveau N à N+1 coûte `40 × N × multiplicateur de rareté` pièces (×1 à ×4) et `2 × N` cartes de l'ingrédient produit. La production prête est récoltée automatiquement au moment de l'amélioration.
 - *Rendement* : chaque carte produite vaut des points selon sa rareté (Commun 1, Peu commun 4, Rare 20, Super rare 100, Légende 360). Le rendement d'une usine = cartes par heure × points ; au niveau 1 : 12, 16, 20, 25 et 30 pts/h selon la rareté, donc une usine rare reste plus rentable malgré sa lenteur. Le **score de rendement** du joueur est la somme de ses usines.
@@ -95,14 +97,25 @@ src/app/(game)/…    pages : boosters, collection, marché, produits, usines
 
 Chaque opération qui touche à des cartes ou des pièces s'exécute dans une transaction, avec des mises à jour conditionnelles (`quantity >= n`, `coins >= x`, verrou optimiste sur le stock de boosters et l'offre en tête) : impossible de dépenser deux fois le même booster ou la même pièce, même avec des requêtes simultanées.
 
-## Production
+## Mise en ligne (Render + Turso)
 
-- Définir un `SESSION_SECRET` aléatoire de 32 caractères ou plus.
-- Le fichier SQLite convient à un serveur unique (VPS, Railway, Fly avec volume). Pour un hébergement serverless (Vercel), utiliser une base [Turso](https://turso.tech) : `DATABASE_URL=libsql://…` et `DATABASE_AUTH_TOKEN=…`, sans changer le code.
-- `npm run build && npm start`.
+Le jeu n'a aucune tâche de fond (boosters, usines et enchères sont calculés à la consultation) : il fonctionne très bien sur l'offre gratuite de Render, qui met le site en veille après 15 min sans visite (premier chargement ensuite ≈ 1 min). Le disque de Render gratuit est effacé à chaque redémarrage : la base est donc hébergée chez **Turso** (SQLite en ligne, offre gratuite), sans changer le code.
+
+1. **Base Turso** — sur turso.tech, créer une base (région Francfort ou Paris), puis récupérer son URL (`libsql://….turso.io`) et créer un jeton d'accès.
+2. **Remplir la base** depuis le PC, dans l'invite de commandes (cmd), dans le dossier du projet. Les variables ne valent que pour cette fenêtre ; ailleurs, le jeu local continue d'utiliser `unboxipe.db`. Pas de guillemets ni d'espace autour du `=` :
+   ```bat
+   set DATABASE_URL=libsql://ma-base.turso.io
+   set DATABASE_AUTH_TOKEN=le-jeton
+   npm run setup
+   ```
+   (Équivalent PowerShell : `$env:DATABASE_URL="..."`, puis `npm.cmd run setup` si PowerShell refuse d'exécuter `npm`.)
+3. **Code sur GitHub** — dépôt privé, par exemple avec GitHub Desktop. `.gitignore` exclut déjà `.env`, la base locale, `node_modules` et `.next`.
+4. **Render** — New → Blueprint → choisir le dépôt : `render.yaml` crée le service (build `npm install && npm run build`, démarrage `npm start`, Node 22, `SESSION_SECRET` généré). Saisir `DATABASE_URL` et `DATABASE_AUTH_TOKEN` quand Render les demande.
+5. Chaque `git push` redéploie automatiquement. Les migrations s'appliquent seules au démarrage.
+
+Le compte de test (`give-all`) et les autres scripts fonctionnent aussi sur la base en ligne avec les deux variables ci-dessus.
 
 ## Pistes d'évolution
 
 - Popularité mesurée sur le site lui-même (consultations des cartes) en complément des scans OFF.
-- Échange direct entre joueurs, vente de produits sur le marché.
-- Niveaux d'usine (capacité, cadence) payables en pièces.
+- Vente de produits sur le marché.

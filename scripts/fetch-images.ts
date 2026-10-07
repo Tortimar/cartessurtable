@@ -1,5 +1,5 @@
 import "./load-env";
-import { eq, isNull } from "drizzle-orm";
+import { eq, isNotNull, isNull } from "drizzle-orm";
 import { db, schema } from "../src/db";
 import { findIngredientImages } from "./ingredient-images";
 
@@ -18,18 +18,22 @@ export async function fetchMissingImages(all = false) {
     return;
   }
   console.log(`Recherche de photos pour ${rows.length} ingrédients…`);
-  const found = await findIngredientImages(rows, undefined, console.log);
+  const { found, failed } = await findIngredientImages(rows, undefined, console.log);
   const now = new Date();
   await db.transaction(async (tx) => {
     for (const r of rows) {
       const url = found.get(r.id);
+      // Échec de la recherche : on ne marque pas l'ingrédient, il sera retenté au prochain lancement
+      if (!url && failed.has(r.id)) continue;
       await tx
         .update(schema.ingredients)
         .set(url ? { imageUrl: url, imageCheckedAt: now } : { imageCheckedAt: now })
         .where(eq(schema.ingredients.id, r.id));
     }
   });
-  console.log(`${found.size}/${rows.length} ingrédients ont maintenant une photo.`);
+  const total = await db.$count(schema.ingredients, isNotNull(schema.ingredients.imageUrl));
+  const count = await db.$count(schema.ingredients);
+  console.log(`${found.size} nouvelles photos. Au total, ${total}/${count} ingrédients ont une photo.`);
 }
 
 if (require.main === module) {

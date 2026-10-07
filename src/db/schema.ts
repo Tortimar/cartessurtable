@@ -225,3 +225,29 @@ export const tradeItems = sqliteTable(
   },
   (t) => [index("trade_items_trade_idx").on(t.tradeId)],
 );
+
+/* Offres de la banque : 5 produits à prix réduit, renouvelés toutes les heures (créés à la première consultation de l'heure) */
+export const bankOffers = sqliteTable(
+  "bank_offers",
+  {
+    id: id(),
+    hour: integer("hour").notNull(), // numéro de l'heure : floor(epoch ms / 3 600 000)
+    slot: integer("slot").notNull(), // 0 à 4
+    productCode: text("product_code").notNull().references(() => products.code, { onDelete: "cascade" }),
+    discount: integer("discount").notNull(), // réduction en %, 0 à 80
+    price: integer("price").notNull(),
+  },
+  (t) => [uniqueIndex("bank_offer_slot_idx").on(t.hour, t.slot)],
+);
+
+/* Chaque joueur peut acheter chaque offre une fois */
+export const bankPurchases = sqliteTable(
+  "bank_purchases",
+  {
+    id: id(),
+    offerId: text("offer_id").notNull().references(() => bankOffers.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdAt: ts("created_at").notNull().$defaultFn(now),
+  },
+  (t) => [uniqueIndex("bank_purchase_once_idx").on(t.offerId, t.userId)],
+);
