@@ -35,7 +35,7 @@
 html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); -webkit-font-smoothing: antialiased; }
 body { min-height: 100vh; }
 a { color: inherit; text-decoration: none; }
-button, input, select { font: inherit; color: inherit; }
+button, input, select, textarea { font: inherit; color: inherit; }
 h1, h2, h3 { font-family: var(--font-display); font-weight: 700; letter-spacing: -0.02em; margin: 0; }
 h1 { font-size: clamp(1.7rem, 3.5vw, 2.25rem); }
 h2 { font-size: 1.3rem; }
@@ -836,3 +836,76 @@ h1 { font-weight: 600; }
 .sources-ask { margin-top: 8px; font-size: .85rem; }
 .bank-offer .card { cursor: pointer; }
 .promo-inline { background: var(--gold); color: #4a2c14; font-family: var(--font-display); font-weight: 700; font-size: .82rem; padding: 2px 8px; border-radius: 999px; box-shadow: 0 0 0 2px var(--accent-btn); }
+
+/* ═════════ Messagerie ═════════ */
+.guild-tag { color: var(--gold); font-weight: 700; font-size: .9em; letter-spacing: .02em; }
+.messenger { display: grid; grid-template-columns: 300px 1fr; gap: 14px; height: calc(100dvh - 250px); min-height: 460px; }
+.conv-list { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.conv { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; width: 100%; padding: 9px 10px; border-radius: 10px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.conv:hover { background: var(--surface-2); }
+.conv.on { background: rgba(var(--accent-rgb),.13); }
+.conv-hint { opacity: .85; }
+.conv-icon { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-3); color: var(--accent); }
+.conv-icon.guild { color: var(--gold); }
+.conv-main { display: grid; min-width: 0; }
+.conv-main b { font-weight: 700; font-size: .92rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conv-main .muted { font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conv.unread .conv-main .muted { color: var(--text); }
+.conv-side { display: grid; justify-items: end; gap: 3px; }
+.conv-side small { color: var(--muted); font-size: .72rem; }
+.conv-side .nav-badge { margin: 0; }
+.conv-title { font-size: .78rem; font-weight: 700; color: var(--muted); margin: 10px 10px 4px; }
+.conv-empty { font-size: .85rem; padding: 6px 10px; }
+.conv-view { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.conv-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.conv-head .muted { font-size: .82rem; }
+.conv-back { display: none; }
+.conv-placeholder { margin: auto; }
+.chat { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.chat-log { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; overscroll-behavior: contain; }
+.chat-empty { margin: auto; text-align: center; }
+.chat-more { text-align: center; margin-bottom: 6px; }
+.chat-day { text-align: center; margin: 10px 0 6px; }
+.chat-day span { font-size: .74rem; color: var(--muted); background: var(--surface-2); border: 1px solid var(--line); padding: 2px 10px; border-radius: 999px; }
+.chat-system { align-self: center; font-size: .8rem; font-style: italic; color: var(--muted); margin: 4px 0; text-align: center; }
+.chat-msg { display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: end; margin-top: 6px; max-width: 78%; }
+.chat-msg.grouped { margin-top: 0; }
+.chat-msg.mine { grid-template-columns: 1fr; align-self: flex-end; justify-items: end; }
+.chat-author { font-size: .76rem; font-weight: 700; margin: 0 0 2px 10px; }
+.chat-bubble { background: var(--surface-3); border-radius: 14px 14px 14px 4px; padding: 7px 11px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; font-size: .93rem; }
+.chat-msg.mine .chat-bubble { background: rgba(var(--accent-rgb),.22); border-radius: 14px 14px 4px 14px; }
+.chat-time { font-size: .68rem; color: var(--muted); margin-left: 8px; white-space: nowrap; }
+.chat-input { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); align-items: flex-end; position: relative; }
+.chat-input textarea { flex: 1; resize: none; max-height: 120px; field-sizing: content; min-height: 42px; line-height: 1.4; }
+.chat-count { position: absolute; right: 110px; top: -18px; font-size: .72rem; color: var(--muted); }
+@media (max-width: 760px) {
+  .messenger { grid-template-columns: 1fr; height: calc(100dvh - 230px - env(safe-area-inset-bottom)); min-height: 380px; }
+  .messenger.has-sel .conv-list { display: none; }
+  .messenger:not(.has-sel) .conv-view { display: none; }
+  .conv-back { display: inline-flex; }
+  .chat-msg { max-width: 90%; }
+  .chat-log { padding: 10px; }
+}
+
+/* ═════════ Guildes ═════════ */
+.guild-home { margin-bottom: 8px; }
+.guild-banner { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; }
+.guild-banner h2 { margin: 0; }
+.guild-crest { width: 56px; height: 64px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: .95rem; letter-spacing: .04em; color: #4a2c14;
+  background: linear-gradient(160deg, var(--gold), #d9902c); clip-path: polygon(50% 0, 100% 14%, 100% 60%, 50% 100%, 0 60%, 0 14%); }
+.guild-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.guild-desc { margin: 12px 0 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.guild-rank { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; color: var(--muted); min-width: 28px; text-align: center; }
+@media (max-width: 760px) {
+  .guild-banner { grid-template-columns: auto 1fr; }
+  .guild-actions { grid-column: 1 / -1; justify-content: stretch; }
+  .guild-actions > * { flex: 1; }
+}
+@media (max-width: 760px) {
+  /* Conversation ouverte sur téléphone : elle prend tout l'écran */
+  .container:has(.messenger.has-sel) .page-head { display: none; }
+  .messenger.has-sel { height: calc(100dvh - 150px - env(safe-area-inset-bottom)); }
+}
+.bank-scale { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .8rem; }
+.bank-scale > span { opacity: .6; }
+.bank-scale > span.on { opacity: 1; font-weight: 700; color: var(--text); }

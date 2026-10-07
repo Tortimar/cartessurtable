@@ -55,7 +55,7 @@ Les produits reçoivent eux aussi une rareté, mais dans l'autre sens : les 3 % 
 **Ingrédients** — identifiants normalisés de la taxonomie OFF (`en:sugar`, `en:wheat-flour`…), ingrédients de premier niveau uniquement. Seuls les produits de 2 à 12 ingrédients reconnus sont importés, pour rester fabricables.
 
 **Marché**
-- *Banque* : rachat immédiat à **1 pièce par carte**, quelle que soit la rareté (`BANK_BUYBACK_PRICE`). Chaque joueur démarre avec 500 pièces. La valeur indicative sert seulement de prix suggéré sur le marché.
+- *Banque* : rachat immédiat selon la rareté — **Commun 1, Peu commun 5, Rare 10, Super rare 25, Légende 50** pièces (`BANK_BUYBACK`). Même barème pour les produits, vendables à la banque depuis l'onglet Produits de la collection. Chaque joueur démarre avec 500 pièces. La valeur indicative sert seulement de prix suggéré sur le marché.
 - *Prix fixe* : les cartes sont mises sous séquestre à la publication, rendues si l'annonce est retirée.
 - *Enchères* : 10 min, 1 h, 6 h ou 24 h. Chaque surenchère doit dépasser l'offre en tête d'au moins 5 %. Les pièces du meilleur enchérisseur sont bloquées et rendues automatiquement s'il est dépassé. Une offre dans la dernière minute prolonge d'une minute (anti-sniping). Les enchères échues sont réglées à la première consultation du marché qui suit.
 
@@ -78,6 +78,10 @@ Les produits reçoivent eux aussi une rareté, mais dans l'autre sens : les 3 % 
 **Classement** — page `/classement` : tous les joueurs triés par score de rendement (les ex æquo partagent la même place), podium des trois premiers, ta position et l'écart avec le joueur juste devant. Onglet « Entre amis » pour ne comparer qu'avec tes amis.
 
 **Amis** — page `/amis` : recherche de joueurs par pseudo, demandes d'amis à accepter ou refuser (pastille dans le menu quand une demande attend), demandes envoyées annulables, liste d'amis avec leur score. Si deux joueurs se demandent mutuellement, l'amitié est acceptée automatiquement.
+
+**Messages** — page `/messages` : chat général (tous les joueurs), chat de guilde et messages privés entre amis (uniquement entre amis). Les nouveaux messages arrivent tout seuls (vérification toutes les 3 s tant que la page est ouverte), « Messages précédents » charge l'historique par 50, Entrée envoie (Maj+Entrée pour aller à la ligne). 500 caractères maximum, un message par seconde au plus. Une pastille dans le menu compte les messages privés et de guilde non lus ; bouton « Écrire » sur chaque ami. Tables `messages` et `chat_reads`.
+
+**Guildes** — page `/guildes` (onglet à côté de Amis) : fonder une guilde (nom unique, blason de 2 à 4 caractères affiché `[TAG]` à côté du pseudo dans les chats), la rejoindre librement (20 membres maximum, une seule guilde par joueur), la quitter. Le chef modifie la description et peut exclure ; s'il part, le plus ancien membre prend la tête ; le dernier qui part dissout la guilde et son chat. Classement des guildes par somme des rendements de leurs membres. Les arrivées, départs et changements de chef sont annoncés dans le chat de guilde. Tables `guilds` et `guild_members`, migration 0008.
 
 **Échanges** — page `/echanges` (onglet à côté de Amis, ou bouton « Échanger » sur un ami) : propose à un ami de donner des ingrédients, des produits et/ou des pièces contre d'autres. Ce que tu offres est **mis sous séquestre** dès l'envoi et te revient si l'ami refuse ou si tu annules ; l'acceptation fait l'échange en une seule transaction (impossible de dupliquer ou perdre une carte, même en cliquant deux fois). L'ami doit posséder ce qui est demandé au moment d'accepter. On ne peut échanger qu'entre amis, et seul l'inventaire d'un ami est visible (pas ses pièces). Une pastille signale les propositions reçues.
 

@@ -125,6 +125,7 @@ export default function FriendsPage() {
                 </div>
               </div>
               <div className="row-side">
+                <Link className="btn btn-sm" href={`/messages?c=${encodeURIComponent(f.username)}`}>Écrire</Link>
                 <Link className="btn btn-sm" href={`/echanges?ami=${encodeURIComponent(f.username)}`}>Échanger</Link>
                 <button className="btn btn-sm btn-ghost btn-danger" onClick={() => remove(f.friendshipId, `${f.username} retiré de tes amis`, `Retirer ${f.username} de tes amis ?`)}>Retirer</button>
               </div>

@@ -21,6 +21,7 @@ export default function CollectionPage() {
   const [rarity, setRarity] = useState("");
   const [sort, setSort] = useState<"name" | "rarity" | "qty">("rarity");
   const [selling, setSelling] = useState<Sellable | null>(null);
+  const [sellingProduct, setSellingProduct] = useState<Sellable | null>(null);
 
   const load = useCallback(() => api<Data>("/api/collection").then(setData).catch((e: Error) => toast(e.message, "error")), [toast]);
   useEffect(() => { load(); }, [load]);
@@ -86,7 +87,13 @@ export default function CollectionPage() {
                     <RarityTag rarity={p.rarity} />
                   </div>
                 </div>
-                <div className="product-foot"><span className="price">×{p.quantity}</span><Link href="/usines" className="btn btn-sm">Bâtir une usine</Link></div>
+                <div className="product-foot">
+                  <span className="price">×{p.quantity}</span>
+                  <span style={{ display: "flex", gap: 6 }}>
+                    <button className="btn btn-sm" onClick={() => setSellingProduct({ id: p.code, name: p.name, rarity: p.rarity, baseValue: 0, quantity: p.quantity, imageUrl: p.imageUrl })}>Vendre</button>
+                    <Link href="/usines" className="btn btn-sm">Bâtir une usine</Link>
+                  </span>
+                </div>
               </div>
             ))}
           </div>
@@ -94,6 +101,7 @@ export default function CollectionPage() {
       )}
 
       {selling && <SellModal item={selling} onClose={() => setSelling(null)} onDone={load} />}
+      {sellingProduct && <SellModal kind="product" item={sellingProduct} onClose={() => setSellingProduct(null)} onDone={load} />}
     </>
   );
 }

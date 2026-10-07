@@ -11,7 +11,7 @@ const S = schema;
 type ScoreInfo = { score: number; factories: number; best: { name: string; level: number; yieldPerHour: number } | null };
 
 /** Score de rendement de chaque joueur = somme des rendements de ses usines. */
-async function allScores() {
+export async function allScores() {
   const rows = await db
     .select({ userId: S.factories.userId, intervalSec: S.factories.intervalSec, level: S.factories.level, rarity: S.ingredients.rarity, name: S.ingredients.name })
     .from(S.factories)

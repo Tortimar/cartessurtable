@@ -79,6 +79,8 @@ export const NAV_ICONS: Record<string, (p: P) => ReactNode> = {
   "/cartes": (p) => <Svg {...p}><rect {...line} x="3.5" y="3.5" width="7" height="7" rx="1.5" /><rect {...line} x="13.5" y="3.5" width="7" height="7" rx="1.5" /><rect {...line} x="3.5" y="13.5" width="7" height="7" rx="1.5" /><circle {...line} cx="17" cy="17" r="3" /><path {...line} d="M19.2 19.2l1.8 1.8" /></Svg>,
   "/classement": (p) => <Svg {...p}><path {...line} d="M8 20v-7H4v7zm6 0V5h-4v15zm6 0V9h-4v11z" /></Svg>,
   "/amis": (p) => <Svg {...p}><circle {...line} cx="9" cy="8" r="3.2" /><path {...line} d="M3 19.5c.6-3.3 3-5 6-5s5.4 1.7 6 5M16 5.2a3 3 0 0 1 0 5.6M18 14.6c1.6.6 2.7 2.3 3 4.9" /></Svg>,
+  "/messages": (p) => <Svg {...p}><path {...line} d="M4 5.5h16v10H10l-4.5 3.5v-3.5H4z" /><path {...line} d="M8 9.5h8M8 12.5h5" /></Svg>,
+  "/guildes": (p) => <Svg {...p}><path {...line} d="M12 3l7 2.5v5.5c0 4.5-3 7.8-7 10-4-2.2-7-5.5-7-10V5.5z" /><path {...line} d="M12 7.5v9M8.5 11h7" /></Svg>,
   "/echanges": (p) => <Svg {...p}><path {...line} d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5" /></Svg>,
   more: (p) => <Svg {...p}><circle cx="5.5" cy="12" r="1.7" fill="currentColor" /><circle cx="12" cy="12" r="1.7" fill="currentColor" /><circle cx="18.5" cy="12" r="1.7" fill="currentColor" /></Svg>,
 };

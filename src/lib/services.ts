@@ -4,13 +4,14 @@ import { alias } from "drizzle-orm/sqlite-core";
 import { db, schema, type Tx } from "@/db";
 import { fail } from "./api";
 import {
-  AUCTION_DURATIONS_MIN, BANK_BUYBACK_PRICE, BOOSTER_MAX, CARDS_PER_BOOSTER, FACTORY_INTERVAL_SEC, FACTORY_MAX_LEVEL,
+  AUCTION_DURATIONS_MIN, bankBuyback, BOOSTER_MAX, CARDS_PER_BOOSTER, FACTORY_INTERVAL_SEC, FACTORY_MAX_LEVEL,
   FACTORY_PRODUCT_COST, RARITIES, boosterState, factoryCapacity, factoryInterval, factoryReady, factoryUpgradeCost,
   factoryYield, minNextBid, pickRarity, PRODUCT_FACTORY_BONUS, productFactoryBaseInterval, productFactoryUpgradeCost,
   productFactoryYield, YIELD_POINTS, type Rarity,
 } from "./game";
 import { pendingRequestCount } from "./social";
 import { pendingTradeCount } from "./trades";
+import { unreadMessageCount } from "./chat";
 import { addCoins, addIngredient, addProduct, takeCoins, takeIngredient, takeProduct } from "./inventory";
 
 const S = schema;
@@ -21,8 +22,8 @@ export async function getMe(userId: string) {
   const [u] = await db.select().from(S.users).where(eq(S.users.id, userId));
   if (!u) fail("Utilisateur introuvable", 401);
   const b = boosterState(u.boosterStock, u.lastBoosterAt);
-  const [friendRequests, tradeRequests] = await Promise.all([pendingRequestCount(userId), pendingTradeCount(userId)]);
-  return { id: u.id, username: u.username, coins: u.coins, boosters: b.available, boosterMax: BOOSTER_MAX, nextBoosterInMs: b.nextInMs, friendRequests, tradeRequests };
+  const [friendRequests, tradeRequests, unreadMessages] = await Promise.all([pendingRequestCount(userId), pendingTradeCount(userId), unreadMessageCount(userId)]);
+  return { id: u.id, username: u.username, coins: u.coins, boosters: b.available, boosterMax: BOOSTER_MAX, nextBoosterInMs: b.nextInMs, friendRequests, tradeRequests, unreadMessages };
 }
 
 /* ───────────────────────────── Boosters ───────────────────────────── */
@@ -96,7 +97,19 @@ export async function quickSell(userId: string, ingredientId: string, quantity: 
     const [ing] = await tx.select().from(S.ingredients).where(eq(S.ingredients.id, ingredientId));
     if (!ing) fail("Ingrédient inconnu", 404);
     await takeIngredient(tx, userId, ingredientId, quantity);
-    const earned = BANK_BUYBACK_PRICE * quantity;
+    const earned = bankBuyback(ing.rarity) * quantity;
+    await addCoins(tx, userId, earned);
+    return { earned };
+  });
+}
+
+/** Vente de produits à la banque, au prix de rachat de leur rareté. */
+export async function quickSellProduct(userId: string, productCode: string, quantity: number) {
+  return db.transaction(async (tx) => {
+    const [p] = await tx.select().from(S.products).where(eq(S.products.code, productCode));
+    if (!p) fail("Produit inconnu", 404);
+    await takeProduct(tx, userId, productCode, quantity);
+    const earned = bankBuyback(p.rarity) * quantity;
     await addCoins(tx, userId, earned);
     return { earned };
   });

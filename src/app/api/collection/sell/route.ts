@@ -1,8 +1,10 @@
 import { authed, body, fail, posInt } from "@/lib/api";
-import { quickSell } from "@/lib/services";
+import { quickSell, quickSellProduct } from "@/lib/services";
 
 export const POST = authed(async ({ userId, req }) => {
-  const b = await body<{ ingredientId?: string; quantity?: number }>(req);
+  const b = await body<{ ingredientId?: string; productCode?: string; quantity?: number }>(req);
+  const quantity = posInt(b.quantity, "Quantité");
+  if (b.productCode) return quickSellProduct(userId, b.productCode, quantity);
   if (!b.ingredientId) fail("Ingrédient manquant");
-  return quickSell(userId, b.ingredientId, posInt(b.quantity, "Quantité"));
+  return quickSell(userId, b.ingredientId, quantity);
 });

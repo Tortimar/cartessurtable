@@ -57,6 +57,13 @@
       "when": 1791360163612,
       "tag": "0007_buy_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791374817715,
+      "tag": "0008_guilds_chat",
+      "breakpoints": true
     }
   ]
 }

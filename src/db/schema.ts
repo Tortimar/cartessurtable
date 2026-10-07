@@ -268,3 +268,48 @@ export const buyRequests = sqliteTable(
   },
   (t) => [index("buy_request_status_idx").on(t.status, t.ingredientId), index("buy_request_user_idx").on(t.requesterId, t.status)],
 );
+
+/* ───────── Guildes ───────── */
+export const guilds = sqliteTable("guilds", {
+  id: id(),
+  name: text("name").notNull().unique(),
+  tag: text("tag").notNull().unique(), // 2 à 4 caractères, affiché à côté du pseudo : [TAG]
+  description: text("description"),
+  leaderId: text("leader_id").notNull().references(() => users.id),
+  createdAt: ts("created_at").notNull().$defaultFn(now),
+});
+
+export const guildMembers = sqliteTable(
+  "guild_members",
+  {
+    userId: text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }), // une seule guilde par joueur
+    guildId: text("guild_id").notNull().references(() => guilds.id, { onDelete: "cascade" }),
+    joinedAt: ts("joined_at").notNull().$defaultFn(now),
+  },
+  (t) => [index("guild_members_guild_idx").on(t.guildId)],
+);
+
+/* ───────── Messagerie ─────────
+   channel : "global" (chat général) | "guild:<id>" | "dm:<idA>:<idB>" (ids triés) */
+export const messages = sqliteTable(
+  "messages",
+  {
+    id: id(),
+    channel: text("channel").notNull(),
+    senderId: text("sender_id").references(() => users.id, { onDelete: "cascade" }), // null = message du jeu (« X a rejoint la guilde »)
+    body: text("body").notNull(),
+    createdAt: ts("created_at").notNull().$defaultFn(now),
+  },
+  (t) => [index("messages_channel_idx").on(t.channel, t.createdAt), index("messages_sender_idx").on(t.senderId, t.createdAt)],
+);
+
+/* Dernière lecture de chaque canal par joueur (messages non lus) */
+export const chatReads = sqliteTable(
+  "chat_reads",
+  {
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    channel: text("channel").notNull(),
+    lastReadAt: ts("last_read_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.channel] })],
+);

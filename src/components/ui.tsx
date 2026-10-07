@@ -24,7 +24,7 @@ export async function api<T = unknown>(url: string, init?: { method?: string; bo
 
 /* ───────── Joueur + toasts (contexte global) ───────── */
 
-export type Me = { id: string; username: string; coins: number; boosters: number; boosterMax: number; nextBoosterInMs: number | null; friendRequests: number; tradeRequests: number };
+export type Me = { id: string; username: string; coins: number; boosters: number; boosterMax: number; nextBoosterInMs: number | null; friendRequests: number; tradeRequests: number; unreadMessages: number };
 type Toast = { id: number; text: string; kind: "ok" | "error" };
 type Ctx = { me: Me | null; refreshMe: () => Promise<void>; toast: (text: string, kind?: Toast["kind"]) => void; run: <T>(fn: () => Promise<T>, okText?: string | ((r: T) => string)) => Promise<T | undefined> };
 
@@ -86,8 +86,12 @@ const LINKS = [
   ["/cartes", "Cartes"],
   ["/classement", "Classement"],
   ["/amis", "Amis"],
+  ["/messages", "Messages"],
+  ["/guildes", "Guildes"],
   ["/echanges", "Échanges"],
 ] as const;
+/** Sur ordinateur, Guildes et Échanges sont des onglets de la page Amis */
+const SOCIAL_SUB = ["/guildes", "/echanges"];
 /** Sur téléphone : 5 onglets dans la barre du bas, le reste dans « Plus ». */
 const MOBILE_MAIN = LINKS.slice(0, 5);
 const MOBILE_MORE = LINKS.slice(5);
@@ -104,8 +108,10 @@ export function Nav() {
   const logout = async () => { await api("/api/auth/logout", { method: "POST" }); router.push("/login"); };
   const badge = (href: string) =>
     (href === "/amis" && !!me?.friendRequests && <span className="nav-badge" title="Demandes d'amis en attente">{me.friendRequests}</span>) ||
-    (href === "/echanges" && !!me?.tradeRequests && <span className="nav-badge" title="Propositions d'échange reçues">{me.tradeRequests}</span>);
-  const moreBadge = (me?.friendRequests ?? 0) + (me?.tradeRequests ?? 0);
+    (href === "/echanges" && !!me?.tradeRequests && <span className="nav-badge" title="Propositions d'échange reçues">{me.tradeRequests}</span>) ||
+    (href === "/messages" && !!me?.unreadMessages && <span className="nav-badge" title="Messages non lus (amis et guilde)">{me.unreadMessages > 99 ? "99+" : me.unreadMessages}</span>);
+  const socialBadge = (me?.friendRequests ?? 0) + (me?.tradeRequests ?? 0);
+  const moreBadge = socialBadge + (me?.unreadMessages ?? 0);
   const moreActive = MOBILE_MORE.some(([h]) => path.startsWith(h));
 
   return (
@@ -114,11 +120,10 @@ export function Nav() {
         <div className="nav-inner">
           <Link href="/boosters" className="logo" aria-label="Cartes sur Table — accueil"><Logo /></Link>
           <div className="nav-links">
-            {LINKS.filter(([href]) => href !== "/echanges").map(([href, label]) => (
-              // Sur ordinateur, Échanges est un onglet de la page Amis
-              <Link key={href} href={href} className={path.startsWith(href) || (href === "/amis" && path.startsWith("/echanges")) ? "active" : ""}>
+            {LINKS.filter(([href]) => !SOCIAL_SUB.includes(href)).map(([href, label]) => (
+              <Link key={href} href={href} className={path.startsWith(href) || (href === "/amis" && SOCIAL_SUB.some((s) => path.startsWith(s))) ? "active" : ""}>
                 {label}
-                {href === "/amis" ? moreBadge > 0 && <span className="nav-badge" title="Demandes d'amis et propositions d'échange">{moreBadge}</span> : badge(href)}
+                {href === "/amis" ? socialBadge > 0 && <span className="nav-badge" title="Demandes d'amis et propositions d'échange">{socialBadge}</span> : badge(href)}
               </Link>
             ))}
           </div>
@@ -328,6 +333,7 @@ export function SocialTabs() {
   return (
     <div className="tabs social-tabs">
       <Link href="/amis" className={path.startsWith("/amis") ? "on" : ""}>Amis{!!me?.friendRequests && <span className="nav-badge">{me.friendRequests}</span>}</Link>
+      <Link href="/guildes" className={path.startsWith("/guildes") ? "on" : ""}>Guildes</Link>
       <Link href="/echanges" className={path.startsWith("/echanges") ? "on" : ""}>Échanges{!!me?.tradeRequests && <span className="nav-badge">{me.tradeRequests}</span>}</Link>
     </div>
   );

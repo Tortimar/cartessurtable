@@ -34,8 +34,15 @@ export const DROP_WEIGHT: Record<Rarity, number> = {
   LEGENDARY: 1,
 };
 
-/** La banque rachète n'importe quelle carte à ce prix (vente rapide). */
-export const BANK_BUYBACK_PRICE = 1;
+/** Rachat immédiat par la banque, selon la rareté (ingrédients comme produits). */
+export const BANK_BUYBACK: Record<Rarity, number> = {
+  COMMON: 1,
+  UNCOMMON: 5,
+  RARE: 10,
+  EPIC: 25,
+  LEGENDARY: 50,
+};
+export const bankBuyback = (rarity: string) => BANK_BUYBACK[rarity as Rarity] ?? 1;
 
 /** Valeur indicative par rareté : sert de prix suggéré quand on vend sur le marché. */
 export const BASE_VALUE: Record<Rarity, number> = {
@@ -199,3 +206,9 @@ export const bankPrice = (discount: number) => Math.max(1, Math.round((BANK_PROD
 
 /* Demandes au marché */
 export const MAX_OPEN_REQUESTS = 3; // demandes ouvertes simultanément par joueur
+
+/* Messagerie et guildes */
+export const MESSAGE_MAX_LENGTH = 500;
+export const MESSAGE_MIN_INTERVAL_MS = 1000; // anti-spam : un message par seconde au plus
+export const CHAT_PAGE_SIZE = 50;
+export const GUILD_MAX_MEMBERS = 20;
