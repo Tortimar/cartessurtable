@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, inArray, gt, sql, type AnyColumn, type SQL } from "drizzle-orm";
 import { db, schema } from "@/db";
 import { fail } from "./api";
-import { minNextBid, RARITIES } from "./game";
+import { MAX_OPEN_REQUESTS, minNextBid, RARITIES } from "./game";
 import { settleAuctions } from "./services";
 import { friendIds } from "./social";
 
@@ -180,8 +180,18 @@ export async function getIngredientSources(userId: string, id: string) {
         .orderBy(desc(S.userIngredients.quantity), asc(S.users.username))
     : [];
 
+  const [{ myOpen }] = await db
+    .select({ myOpen: sql<number>`count(*)` })
+    .from(S.buyRequests)
+    .where(and(eq(S.buyRequests.requesterId, userId), eq(S.buyRequests.status, "OPEN")));
+  const [{ myRequested }] = await db
+    .select({ myRequested: sql<number>`coalesce(sum(${S.buyRequests.quantity} - ${S.buyRequests.filled}), 0)` })
+    .from(S.buyRequests)
+    .where(and(eq(S.buyRequests.requesterId, userId), eq(S.buyRequests.status, "OPEN"), eq(S.buyRequests.ingredientId, id)));
+
   return {
     ingredient: ing,
+    myOpen, maxOpen: MAX_OPEN_REQUESTS, myRequested,
     listings: listings.map((l) => ({ ...l, mine: !!l.mine })),
     auctions: auctions.map((a) => ({ ...a, mine: !!a.mine, leading: !!a.leading, minBid: minNextBid(a.startPrice, a.currentBid) })),
     friends,

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { api, Avatar, RarityTag, Thumb, useGame } from "./ui";
 import { CoinIcon } from "./icons";
+import { RequestModal } from "./RequestModal";
 
 type Sources = {
   ingredient: { id: string; name: string; rarity: string; imageUrl: string | null; baseValue: number; have: number };
@@ -12,6 +13,9 @@ type Sources = {
   auctions: { id: string; quantity: number; startPrice: number; currentBid: number | null; minBid: number; endsAt: string; seller: string; mine: boolean; leading: boolean }[];
   friends: { id: string; username: string; quantity: number }[];
   friendCount: number;
+  myOpen: number;
+  maxOpen: number;
+  myRequested: number;
 };
 
 const coins = (n: number) => n.toLocaleString("fr-FR");
@@ -27,6 +31,7 @@ export function IngredientSources({ id, onClose, onChanged }: { id: string; onCl
   const { me, run, toast } = useGame();
   const [data, setData] = useState<Sources | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [asking, setAsking] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   // Le panneau s'ouvre sous la recette : on le fait apparaître à l'écran (utile sur téléphone)
   useEffect(() => { box.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, [data === null]);
@@ -102,6 +107,11 @@ export function IngredientSources({ id, onClose, onChanged }: { id: string; onCl
               </div>
             ))}
           </div>
+          <div className="sources-ask">
+            {data.myRequested > 0
+              ? <span className="muted">Ta demande en cours : {data.myRequested} carte{data.myRequested > 1 ? "s" : ""}. <Link href="/marche?tab=demandes" style={{ color: "var(--accent)" }}>Voir</Link></span>
+              : <button className="btn btn-sm" disabled={data.myOpen >= data.maxOpen} onClick={() => setAsking(true)} title={data.myOpen >= data.maxOpen ? `Déjà ${data.maxOpen} demandes en cours` : "Propose un prix aux autres joueurs"}>Faire une demande ({data.myOpen}/{data.maxOpen})</button>}
+          </div>
         </section>
 
         <section>
@@ -125,6 +135,7 @@ export function IngredientSources({ id, onClose, onChanged }: { id: string; onCl
           )}
         </section>
       </div>
+      {asking && <RequestModal initial={ing} myOpen={data.myOpen} maxOpen={data.maxOpen} onClose={() => setAsking(false)} onDone={load} />}
     </div>
   );
 }

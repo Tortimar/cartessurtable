@@ -251,3 +251,20 @@ export const bankPurchases = sqliteTable(
   },
   (t) => [uniqueIndex("bank_purchase_once_idx").on(t.offerId, t.userId)],
 );
+
+/* Demandes d'achat au marché : un joueur propose un prix pour des cartes qu'il cherche ; les pièces sont bloquées */
+export const buyRequests = sqliteTable(
+  "buy_requests",
+  {
+    id: id(),
+    requesterId: text("requester_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    ingredientId: text("ingredient_id").notNull().references(() => ingredients.id),
+    quantity: integer("quantity").notNull(), // cartes demandées
+    filled: integer("filled").notNull().default(0), // cartes déjà reçues (livraisons partielles possibles)
+    unitPrice: integer("unit_price").notNull(),
+    status: text("status").notNull().default("OPEN"), // OPEN | FILLED | CANCELLED
+    createdAt: ts("created_at").notNull().$defaultFn(now),
+    closedAt: ts("closed_at"),
+  },
+  (t) => [index("buy_request_status_idx").on(t.status, t.ingredientId), index("buy_request_user_idx").on(t.requesterId, t.status)],
+);

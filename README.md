@@ -61,6 +61,8 @@ Les produits reçoivent eux aussi une rareté, mais dans l'autre sens : les 3 % 
 
 **Offres de la banque** — en haut du marché, 5 produits tirés au hasard, à 500 pièces avec une réduction aléatoire de 0 à 80 % (`BANK_*` dans `src/lib/game.ts`). Elles sont les mêmes pour tous les joueurs et changent à chaque heure pile (compte à rebours affiché) ; chaque joueur peut acheter chaque offre une fois. Les offres sont créées à la première consultation de l'heure (tables `bank_offers` et `bank_purchases`, migration 0006) et celles de plus de 48 h sont effacées.
 
+**Demandes** — onglet « Demandes » du marché (bouton « Faire une demande », ou depuis « Où trouver… ? ») : un joueur indique la carte qu'il cherche, la quantité et le prix par carte ; le total est mis de côté. Les autres joueurs qui ont la carte la vendent directement, en une ou plusieurs fois, et reçoivent aussitôt les pièces ; le demandeur reçoit les cartes. L'auteur peut annuler : le reste non dépensé lui revient. **3 demandes en cours maximum par joueur** (`MAX_OPEN_REQUESTS`). Table `buy_requests`, migration 0007.
+
 **Fabrication** — consomme 1 carte de chaque ingrédient du produit, par exemplaire. Un clic sur un produit ouvre son sous-menu : recette (ingrédients possédés / manquants), quantité à fabriquer. Un clic sur un ingrédient de la recette ouvre « Où trouver… ? » : les annonces du marché (achat direct, du moins cher au plus cher), les enchères en cours (lien vers l'onglet Enchères) et les amis qui possèdent la carte, avec un bouton qui ouvre une proposition d'échange où la carte est déjà demandée. Animation : les cartes ingrédients rejoignent le centre une à une, puis la carte produit apparaît, avec son.
 
 **Usines**

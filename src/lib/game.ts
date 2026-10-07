@@ -196,3 +196,6 @@ export const BANK_PRODUCT_PRICE = 500; // prix de base d'un produit
 export const BANK_MAX_DISCOUNT = 80; // réduction tirée au hasard entre 0 et 80 %
 export const BANK_ROTATION_MS = 60 * 60_000;
 export const bankPrice = (discount: number) => Math.max(1, Math.round((BANK_PRODUCT_PRICE * (100 - discount)) / 100));
+
+/* Demandes au marché */
+export const MAX_OPEN_REQUESTS = 3; // demandes ouvertes simultanément par joueur

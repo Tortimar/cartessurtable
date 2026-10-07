@@ -824,3 +824,13 @@ h1 { font-weight: 600; }
 .bank-price b { color: var(--gold); font-size: 1.1rem; display: inline-flex; align-items: center; gap: 4px; }
 @media (max-width: 1000px) { .bank-strip { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 168px; overflow-x: auto; padding: 10px 6px 6px; scroll-snap-type: x mandatory; } .bank-offer { scroll-snap-align: start; } }
 @media (max-width: 760px) { .bank { padding: 14px 10px 14px; margin-bottom: 20px; } .bank-strip { grid-auto-columns: 46%; gap: 10px; } .promo { width: 46px; height: 46px; font-size: .82rem; right: -4px; } }
+
+/* ═════════ Marché : demandes ═════════ */
+.btn-request { border-color: var(--line-hi); }
+.btn-request .count { margin-left: 2px; }
+.row-mine { border-color: rgba(var(--accent-rgb),.45); }
+.request-sum { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px dashed var(--line-hi); }
+.request-sum b { color: var(--gold); font-size: 1.15rem; display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
+.request-sum .muted { margin-left: auto; font-size: .82rem; }
+@media (max-width: 760px) { .btn-request { flex: 1 1 100%; } }
+.sources-ask { margin-top: 8px; font-size: .85rem; }
