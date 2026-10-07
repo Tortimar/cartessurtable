@@ -313,3 +313,28 @@ export const chatReads = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.channel] })],
 );
+
+/* Quête journalière du Chef (PNJ du marché) : 5 ingrédients par jour, mêmes pour tous */
+export const chefQuests = sqliteTable(
+  "chef_quests",
+  {
+    id: id(),
+    day: text("day").notNull(), // jour à Paris, AAAA-MM-JJ
+    slot: integer("slot").notNull(), // 0 à 4
+    ingredientId: text("ingredient_id").notNull().references(() => ingredients.id, { onDelete: "cascade" }),
+    reward: integer("reward").notNull(),
+  },
+  (t) => [uniqueIndex("chef_quest_slot_idx").on(t.day, t.slot)],
+);
+
+/* Livraisons au Chef : une par ingrédient demandé et par joueur */
+export const chefDeliveries = sqliteTable(
+  "chef_deliveries",
+  {
+    id: id(),
+    questId: text("quest_id").notNull().references(() => chefQuests.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdAt: ts("created_at").notNull().$defaultFn(now),
+  },
+  (t) => [uniqueIndex("chef_delivery_once_idx").on(t.questId, t.userId)],
+);

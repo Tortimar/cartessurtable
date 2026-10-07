@@ -909,3 +909,32 @@ h1 { font-weight: 600; }
 .bank-scale { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: .8rem; }
 .bank-scale > span { opacity: .6; }
 .bank-scale > span.on { opacity: 1; font-weight: 700; color: var(--text); }
+
+/* ═════════ Marché : le Chef (PNJ, quête du jour) ═════════ */
+.chef { margin: 0 0 22px; padding: 14px 16px 16px; border-radius: 14px; border: 1px solid var(--line-hi); background: radial-gradient(420px 160px at 0% 0%, rgba(150,194,94,.10), transparent 70%), var(--surface); }
+.chef-head { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; margin-bottom: 12px; }
+.chef-portrait { width: 72px; height: 72px; flex-shrink: 0; filter: drop-shadow(0 3px 6px rgba(0,0,0,.4)); }
+.chef-name { font-family: var(--font-display); font-weight: 600; font-size: 1.1rem; }
+.chef-name .muted { font-family: var(--font); font-size: .82rem; font-weight: 500; }
+.chef-bubble { position: relative; margin: 6px 0 0; padding: 8px 12px; border-radius: 4px 14px 14px 14px; background: var(--cream); color: #4a2c14; font-size: .92rem; line-height: 1.4; max-width: 60ch; }
+.chef-meta { display: grid; justify-items: end; gap: 6px; text-align: right; }
+.chef-list { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.chef-item { display: grid; gap: 8px; align-content: space-between; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); }
+.chef-item.on { border-color: var(--accent); }
+.chef-item.done { opacity: .6; }
+.chef-item > .btn, .chef-item > .tag { justify-self: stretch; text-align: center; }
+.chef-ing { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.chef-ing-text { display: grid; min-width: 0; font-size: .78rem; color: var(--muted); }
+.chef-ing-text b { color: var(--text); font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 1000px) { .chef-list { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); } }
+@media (max-width: 760px) {
+  .chef { padding: 12px 10px; }
+  .chef-head { grid-template-columns: auto 1fr; gap: 10px; }
+  .chef-portrait { width: 56px; height: 56px; }
+  .chef-meta { grid-column: 1 / -1; grid-auto-flow: column; justify-content: space-between; align-items: center; justify-items: start; }
+  .chef-list { grid-template-columns: 1fr; gap: 6px; }
+  .chef-item { grid-template-columns: 1fr auto; align-items: center; padding: 8px 10px; }
+  .chef-item > .btn, .chef-item > .tag { justify-self: end; }
+}
+.chef-meta .muted { white-space: nowrap; }
+@media (max-width: 760px) { .chef-meta { gap: 8px; } .chef-meta .pill { font-size: .8rem; } }

@@ -212,3 +212,8 @@ export const MESSAGE_MAX_LENGTH = 500;
 export const MESSAGE_MIN_INTERVAL_MS = 1000; // anti-spam : un message par seconde au plus
 export const CHAT_PAGE_SIZE = 50;
 export const GUILD_MAX_MEMBERS = 20;
+
+/* Le Chef (PNJ du marché) : quête journalière */
+export const CHEF_DAILY_COUNT = 5; // ingrédients demandés chaque jour
+export const CHEF_REWARD = 50; // pièces par ingrédient livré
+export const CHEF_TIMEZONE = "Europe/Paris"; // la commande change à minuit, heure de Paris

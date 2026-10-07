@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, fmtMs, RarityFilter, RarityTag, Thumb, useCountdown, useGame } from "@/components/ui";
 import { CoinIcon } from "@/components/icons";
 import { BankOffers } from "@/components/BankOffers";
+import { ChefQuests } from "@/components/ChefQuests";
 import { RequestModal } from "@/components/RequestModal";
 
 type Listing = { id: string; ingredientId: string; ingredientName: string; rarity: string; baseValue: number; imageUrl: string | null; quantity: number; unitPrice: number; seller: string; mine: boolean };
@@ -62,7 +63,7 @@ export default function MarketPage() {
       <div className="page-head">
         <div>
           <h1>Marché</h1>
-          <p>Profite des offres de la banque, achète les ingrédients des autres joueurs ou enchéris sur leurs lots. Pour vendre, passe par ta collection.</p>
+          <p>Livre au Chef sa commande du jour, profite des offres de la banque, achète les ingrédients des autres joueurs ou enchéris sur leurs lots. Pour vendre, passe par ta collection.</p>
         </div>
         <div className="tabs">
           <button className={tab === "listings" ? "on" : ""} onClick={() => setTab("listings")}>Achat direct{count(data?.listings.length)}</button>
@@ -71,6 +72,7 @@ export default function MarketPage() {
         </div>
       </div>
 
+      <ChefQuests />
       <BankOffers />
 
       <div className="toolbar">
