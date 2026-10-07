@@ -834,3 +834,5 @@ h1 { font-weight: 600; }
 .request-sum .muted { margin-left: auto; font-size: .82rem; }
 @media (max-width: 760px) { .btn-request { flex: 1 1 100%; } }
 .sources-ask { margin-top: 8px; font-size: .85rem; }
+.bank-offer .card { cursor: pointer; }
+.promo-inline { background: var(--gold); color: #4a2c14; font-family: var(--font-display); font-weight: 700; font-size: .82rem; padding: 2px 8px; border-radius: 999px; box-shadow: 0 0 0 2px var(--accent-btn); }
