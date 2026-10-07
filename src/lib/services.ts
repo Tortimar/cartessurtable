@@ -356,7 +356,9 @@ export async function getFactories(userId: string) {
     e.products.push({ code: o.code, name: o.name, imageUrl: o.imageUrl, rarity: o.rarity, quantity: o.quantity });
     byIng.set(o.ingredientId, e);
   }
+  const built = new Set(factories.map((f) => f.ingredientId)); // une seule usine par ingrédient
   const options = [...byIng.values()]
+    .filter((o) => !built.has(o.id))
     .map((o) => {
       const rarity = o.rarity as Rarity;
       const available = o.products.reduce((n, p) => n + p.quantity, 0);
@@ -453,7 +455,9 @@ async function getProductFactories(userId: string, ingFactories: IngFactory[], c
     o.ingredients.push({ id: r.ingredientId, name: r.ingredientName, rarity: r.ingredientRarity, imageUrl: r.ingredientImage, factories: [...(byIng.get(r.ingredientId) ?? [])].sort((a, b) => b.yieldPerHour - a.yieldPerHour) });
     opts.set(r.code, o);
   }
+  const builtProducts = new Set(list.map((f) => f.productCode)); // une seule usine par produit
   const options = [...opts.values()]
+    .filter((o) => !builtProducts.has(o.code))
     .map((o) => {
       const missing = o.ingredients.filter((i) => i.factories.length === 0).length;
       const consumedYield = o.ingredients.reduce((n, i) => n + (i.factories[0]?.yieldPerHour ?? 0), 0);
@@ -470,6 +474,8 @@ export async function buildProductFactory(userId: string, productCode: string, f
   return db.transaction(async (tx) => {
     const [product] = await tx.select().from(S.products).where(eq(S.products.code, productCode));
     if (!product) fail("Produit inconnu", 404);
+    const owned = () => tx.select({ n: sql<number>`count(*)` }).from(S.productFactories).where(and(eq(S.productFactories.userId, userId), eq(S.productFactories.productCode, productCode)));
+    if ((await owned())[0].n > 0) fail(`Tu as déjà une usine de « ${product.name} » : améliore-la plutôt (une usine par produit)`, 409);
     const recipe = await tx.select({ id: S.productIngredients.ingredientId }).from(S.productIngredients).where(eq(S.productIngredients.productCode, productCode));
     const ids = [...new Set(factoryIds)];
     if (ids.length !== recipe.length) fail(`Il faut exactement une usine par ingrédient (${recipe.length})`);
@@ -495,6 +501,7 @@ export async function buildProductFactory(userId: string, productCode: string, f
     const del = await tx.delete(S.factories).where(and(eq(S.factories.userId, userId), inArray(S.factories.id, ids))).returning({ id: S.factories.id });
     if (del.length !== ids.length) fail("Usines déjà utilisées", 409);
     const [pf] = await tx.insert(S.productFactories).values({ userId, productCode, intervalSec, points, level: 1 }).returning();
+    if ((await owned())[0].n > 1) fail(`Tu as déjà une usine de « ${product.name} »`, 409);
     return {
       factory: { ...pf, name: product.name, brand: product.brand, rarity: product.rarity, imageUrl: product.imageUrl, interval: factoryInterval(intervalSec, 1), yieldPerHour: productFactoryYield(intervalSec, 1, points) },
       consumedYield: Math.round(consumedYield * 10) / 10,
@@ -553,6 +560,8 @@ export async function buildFactory(userId: string, ingredientId: string, selecti
   return db.transaction(async (tx) => {
     const [ing] = await tx.select().from(S.ingredients).where(eq(S.ingredients.id, ingredientId));
     if (!ing) fail("Ingrédient inconnu", 404);
+    const owned = () => tx.select({ n: sql<number>`count(*)` }).from(S.factories).where(and(eq(S.factories.userId, userId), eq(S.factories.ingredientId, ingredientId)));
+    if ((await owned())[0].n > 0) fail(`Tu as déjà une usine à « ${ing.name} » : améliore-la plutôt (une usine par ingrédient)`, 409);
     const codes = [...new Set(selection.map((s) => s.code))];
     const valid = await tx
       .select({ code: S.productIngredients.productCode })
@@ -565,6 +574,8 @@ export async function buildFactory(userId: string, ingredientId: string, selecti
       .insert(S.factories)
       .values({ userId, ingredientId, intervalSec: FACTORY_INTERVAL_SEC[rarity], level: 1, capacity: factoryCapacity(1) })
       .returning();
+    // Garde-fou si deux constructions partent au même instant
+    if ((await owned())[0].n > 1) fail(`Tu as déjà une usine à « ${ing.name} »`, 409);
     return { factory: { ...f, name: ing.name, rarity: ing.rarity, imageUrl: ing.imageUrl, yieldPerHour: factoryYield(f.intervalSec, 1, rarity), interval: factoryInterval(f.intervalSec, 1) } };
   });
 }

@@ -127,7 +127,7 @@ export default function FactoriesPage() {
       <h2 style={{ margin: "36px 0 6px" }}>Fusionner en usine de produits</h2>
       <p className="muted" style={{ marginTop: 0 }}>
         Réunis une usine pour chaque ingrédient d&apos;un produit : elles fusionnent en une usine qui fabrique directement ce produit,
-        avec <b style={{ color: "var(--accent)" }}>+{Math.round(((data?.productBonus ?? 1.5) - 1) * 100)} % de rendement</b> par rapport aux usines fusionnées.
+        avec <b style={{ color: "var(--accent)" }}>+{Math.round(((data?.productBonus ?? 1.5) - 1) * 100)} % de rendement</b> par rapport aux usines fusionnées. Une seule usine par produit.
       </p>
       {data && data.productOptions.length === 0 && <div className="empty">Construis d&apos;abord des usines d&apos;ingrédients : les produits dont tu couvres des ingrédients apparaîtront ici.</div>}
       <div className="rows">
@@ -149,8 +149,8 @@ export default function FactoriesPage() {
       </div>
 
       <h2 style={{ margin: "36px 0 6px" }}>Construire une usine d&apos;ingrédient</h2>
-      <p className="muted" style={{ marginTop: 0 }}>Une usine coûte {data?.cost ?? 3} produits contenant l&apos;ingrédient choisi. Tu choisis toi-même lesquels sacrifier.</p>
-      {data && data.options.length === 0 && <div className="empty">Il te faut des produits fabriqués. Rends-toi dans <Link href="/produits">Produits</Link>.</div>}
+      <p className="muted" style={{ marginTop: 0 }}>Une usine coûte {data?.cost ?? 3} produits contenant l&apos;ingrédient choisi. Tu choisis toi-même lesquels sacrifier. <b style={{ color: "var(--text)" }}>Une seule usine par ingrédient</b> : pour produire plus, améliore-la.</p>
+      {data && data.options.length === 0 && <div className="empty">{data.factories.length ? "Tu as déjà une usine pour chaque ingrédient de tes produits. Fabrique d'autres produits pour en débloquer de nouvelles : " : "Il te faut des produits fabriqués. Rends-toi dans "}<Link href="/produits">Produits</Link>.</div>}
       <div className="rows">
         {data?.options.map((o) => (
           <div key={o.id} className="row clickable" role="button" tabIndex={0} onClick={() => setBuilding(o.id)} onKeyDown={(e) => e.key === "Enter" && setBuilding(o.id)} aria-label={`Usine à ${o.name}`}>
