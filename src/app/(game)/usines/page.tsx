@@ -31,6 +31,7 @@ type FusionOption = {
 type Data = {
   factories: Factory[]; options: Option[]; cost: number; maxLevel: number; score: number;
   productFactories: ProductFactory[]; productOptions: FusionOption[]; productBonus: number;
+  coverage: { ingredients: number; totalIngredients: number; products: number; totalProducts: number };
 };
 type Fused = { option: FusionOption; consumed: FusionFactory[]; factory: { name: string; rarity: string; imageUrl: string | null; yieldPerHour: number; interval: number }; consumedYield: number };
 type Built = { option: Option; picks: OwnedProduct[]; factory: { name: string; rarity: string; imageUrl: string | null; yieldPerHour: number; interval: number } };
@@ -45,6 +46,7 @@ export default function FactoriesPage() {
   const [leveling, setLeveling] = useState<string | null>(null);
   const [fusing, setFusing] = useState<FusionOption | null>(null);
   const [fused, setFused] = useState<Fused | null>(null);
+  const [buildTab, setBuildTab] = useState<"ingredient" | "product">("ingredient");
 
   const load = useCallback(() => api<Data>("/api/factories").then(setData).catch((e: Error) => toast(e.message, "error")), [toast]);
   useEffect(() => { load(); const t = setInterval(load, 30_000); return () => clearInterval(t); }, [load]);
@@ -79,6 +81,20 @@ export default function FactoriesPage() {
   };
 
   const buildingOption = building ? data?.options.find((o) => o.id === building) : undefined;
+  const readyCount = data ? [...data.factories, ...data.productFactories].filter((f) => f.ready > 0).length : 0;
+  const readyTotal = data ? [...data.factories, ...data.productFactories].reduce((n, f) => n + f.ready, 0) : 0;
+  const [collecting, setCollecting] = useState(false);
+  const collectAll = async () => {
+    setCollecting(true);
+    const res = await run(
+      () => api<{ cards: number; products: number; factories: number }>("/api/factories/collect-all", { method: "POST" }),
+      (r) => `Récolte de ${r.factories} usine${r.factories > 1 ? "s" : ""} : ${[r.cards && `+${r.cards} carte${r.cards > 1 ? "s" : ""}`, r.products && `+${r.products} produit${r.products > 1 ? "s" : ""}`].filter(Boolean).join(", ")}`,
+    );
+    setCollecting(false);
+    if (res) playCraftDone();
+    load();
+  };
+
   const totalPerHour = data ? [...data.factories, ...data.productFactories].reduce((n, f) => n + 3600 / f.interval, 0) : 0;
   const factoryCount = data ? data.factories.length + data.productFactories.length : 0;
 
@@ -94,7 +110,8 @@ export default function FactoriesPage() {
       {data && (
         <div className="stat-row" style={{ marginBottom: 24 }}>
           <div className="stat big"><b>{fmtPts(data.score)}</b><span>Score de rendement (points / heure)</span></div>
-          <div className="stat"><b>{factoryCount}</b><span>Usine{factoryCount > 1 ? "s" : ""}{data.productFactories.length ? ` dont ${data.productFactories.length} de produits` : ""}</span></div>
+          <Coverage label="Usines d'ingrédients" n={data.coverage.ingredients} total={data.coverage.totalIngredients} unit="ingrédients" />
+          <Coverage label="Usines de produits" n={data.coverage.products} total={data.coverage.totalProducts} unit="produits" />
           <div className="stat"><b>{fmtPts(totalPerHour)}</b><span>Cartes produites / heure</span></div>
           <div className="stat legend" title="Points de rendement par carte produite">
             <span>Points par carte</span>
@@ -105,7 +122,14 @@ export default function FactoriesPage() {
         </div>
       )}
 
-      <h2 style={{ marginBottom: 12 }}>Mes usines</h2>
+      <div className="section-head">
+        <h2>Mes usines {data && <span className="count" title="Ingrédients équipés d'une usine / ingrédients du jeu">{data.coverage.ingredients}/{data.coverage.totalIngredients}</span>}</h2>
+        {factoryCount > 0 && (
+          <button className="btn btn-primary" disabled={readyCount === 0 || collecting} onClick={collectAll} title={readyCount ? `${readyCount} usine${readyCount > 1 ? "s" : ""} à récolter` : "Rien à récolter pour l'instant"}>
+            Tout récolter{readyTotal > 0 && ` (${readyTotal})`}
+          </button>
+        )}
+      </div>
       {data && data.factories.length === 0 && <div className="empty">Aucune usine pour l&apos;instant. Fabrique des produits puis construis-en une ci-dessous.</div>}
       <div className="factory-grid">
         {data?.factories.map((f) => (
@@ -115,7 +139,7 @@ export default function FactoriesPage() {
 
       {data && data.productFactories.length > 0 && (
         <>
-          <h2 style={{ margin: "36px 0 12px" }}>Usines de produits</h2>
+          <h2 style={{ margin: "36px 0 12px", display: "flex", gap: 8, alignItems: "center" }}>Usines de produits <span className="count" title="Produits équipés d'une usine / produits du jeu">{data.coverage.products}/{data.coverage.totalProducts}</span></h2>
           <div className="factory-grid">
             {data.productFactories.map((f) => (
               <FactorySlot key={f.id} f={f} card={{ id: f.productCode, name: f.name, rarity: f.rarity, imageUrl: f.imageUrl }} kind="productFactory" base="/api/product-factories" unit="produit" maxLevel={data.maxLevel} leveling={leveling === f.id} onChange={load} onUpgrade={() => upgrade(f, "/api/product-factories")} />
@@ -124,48 +148,65 @@ export default function FactoriesPage() {
         </>
       )}
 
-      <h2 style={{ margin: "36px 0 6px" }}>Fusionner en usine de produits</h2>
-      <p className="muted" style={{ marginTop: 0 }}>
-        Réunis une usine pour chaque ingrédient d&apos;un produit : elles fusionnent en une usine qui fabrique directement ce produit,
-        avec <b style={{ color: "var(--accent)" }}>+{Math.round(((data?.productBonus ?? 1.5) - 1) * 100)} % de rendement</b> par rapport aux usines fusionnées. Une seule usine par produit.
-      </p>
-      {data && data.productOptions.length === 0 && <div className="empty">Construis d&apos;abord des usines d&apos;ingrédients : les produits dont tu couvres des ingrédients apparaîtront ici.</div>}
-      <div className="rows">
-        {data?.productOptions.slice(0, 12).map((o) => (
-          <div key={o.code} className="row">
-            {o.imageUrl ? <img className="product-img" src={o.imageUrl} alt="" style={{ width: 44, height: 44 }} /> : <span className="product-img placeholder" style={{ width: 44, height: 44 }}><CanIcon size={26} /></span>}
-            <div style={{ minWidth: 0 }}>
-              <div className="row-title">{o.name} <RarityTag rarity={o.rarity} /></div>
-              <div className="row-meta">
-                {o.total - o.missing}/{o.total} usines d&apos;ingrédients
-                {o.preview ? <> · {fmtPts(o.consumedYield)} → <b className="arrow-gain">{fmtPts(o.preview.yieldPerHour)} pts/h</b></> : <> · manque : {o.ingredients.filter((i) => !i.factories.length).map((i) => i.name).join(", ")}</>}
-              </div>
-            </div>
-            <div className="row-side">
-              <button className="btn btn-sm btn-primary" disabled={o.missing > 0} onClick={() => setFusing(o)}>{o.missing ? `${o.total - o.missing}/${o.total}` : "Choisir les usines"}</button>
-            </div>
+      <section className="build-panel">
+        <div className="section-head">
+          <h2>Nouvelle usine</h2>
+          <div className="tabs" role="tablist" aria-label="Type d'usine">
+            <button role="tab" aria-selected={buildTab === "ingredient"} className={buildTab === "ingredient" ? "on" : ""} onClick={() => setBuildTab("ingredient")}>
+              Ingrédient{data && data.options.some((o) => o.canBuild) && <span className="nav-badge" style={{ background: "var(--basil)", color: "#1e1510" }}>{data.options.filter((o) => o.canBuild).length}</span>}
+            </button>
+            <button role="tab" aria-selected={buildTab === "product"} className={buildTab === "product" ? "on" : ""} onClick={() => setBuildTab("product")}>
+              Produit (fusion){data && data.productOptions.some((o) => o.missing === 0) && <span className="nav-badge" style={{ background: "var(--basil)", color: "#1e1510" }}>{data.productOptions.filter((o) => o.missing === 0).length}</span>}
+            </button>
           </div>
-        ))}
-      </div>
-
-      <h2 style={{ margin: "36px 0 6px" }}>Construire une usine d&apos;ingrédient</h2>
+        </div>
+        {buildTab === "ingredient" ? (
+          <div role="tabpanel">
       <p className="muted" style={{ marginTop: 0 }}>Une usine coûte {data?.cost ?? 3} produits contenant l&apos;ingrédient choisi. Tu choisis toi-même lesquels sacrifier. <b style={{ color: "var(--text)" }}>Une seule usine par ingrédient</b> : pour produire plus, améliore-la.</p>
-      {data && data.options.length === 0 && <div className="empty">{data.factories.length ? "Tu as déjà une usine pour chaque ingrédient de tes produits. Fabrique d'autres produits pour en débloquer de nouvelles : " : "Il te faut des produits fabriqués. Rends-toi dans "}<Link href="/produits">Produits</Link>.</div>}
-      <div className="rows">
-        {data?.options.map((o) => (
-          <div key={o.id} className="row clickable" role="button" tabIndex={0} onClick={() => setBuilding(o.id)} onKeyDown={(e) => e.key === "Enter" && setBuilding(o.id)} aria-label={`Usine à ${o.name}`}>
-            <Thumb ing={o} />
-            <div>
-              <div className="row-title">{o.name} <RarityTag rarity={o.rarity} /></div>
-              <div className="row-meta">1 carte / {fmtInterval(o.intervalSec)} · rendement niveau 1 : <b style={{ color: "var(--gold)" }}>{fmtPts(o.yieldPerHour)} pts/h</b> · {o.available} produit{o.available > 1 ? "s" : ""} éligible{o.available > 1 ? "s" : ""}</div>
-            </div>
-            <div className="row-side">
-              <span className={`progress-tag ${o.canBuild ? "done" : ""}`}>{Math.min(o.available, data.cost)}/{data.cost}</span>
-              <button className={`btn btn-sm ${o.canBuild ? "btn-primary" : ""}`} onClick={(e) => { e.stopPropagation(); setBuilding(o.id); }}>{o.canBuild ? "Construire" : "Compléter"}</button>
+            {data && data.options.length === 0 && <div className="empty">{data.factories.length ? "Tu as déjà une usine pour chaque ingrédient de tes produits. Fabrique d'autres produits pour en débloquer de nouvelles : " : "Il te faut des produits fabriqués. Rends-toi dans "}<Link href="/produits">Produits</Link>.</div>}
+            <div className="rows">
+              {data?.options.map((o) => (
+                <div key={o.id} className="row clickable" role="button" tabIndex={0} onClick={() => setBuilding(o.id)} onKeyDown={(e) => e.key === "Enter" && setBuilding(o.id)} aria-label={`Usine à ${o.name}`}>
+                  <Thumb ing={o} />
+                  <div>
+                    <div className="row-title">{o.name} <RarityTag rarity={o.rarity} /></div>
+                    <div className="row-meta">1 carte / {fmtInterval(o.intervalSec)} · rendement niveau 1 : <b style={{ color: "var(--gold)" }}>{fmtPts(o.yieldPerHour)} pts/h</b> · {o.available} produit{o.available > 1 ? "s" : ""} éligible{o.available > 1 ? "s" : ""}</div>
+                  </div>
+                  <div className="row-side">
+                    <span className={`progress-tag ${o.canBuild ? "done" : ""}`}>{Math.min(o.available, data.cost)}/{data.cost}</span>
+                    <button className={`btn btn-sm ${o.canBuild ? "btn-primary" : ""}`} onClick={(e) => { e.stopPropagation(); setBuilding(o.id); }}>{o.canBuild ? "Construire" : "Compléter"}</button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        ))}
-      </div>
+        ) : (
+          <div role="tabpanel">
+      <p className="muted" style={{ marginTop: 0 }}>
+              Réunis une usine pour chaque ingrédient d&apos;un produit : elles fusionnent en une usine qui fabrique directement ce produit,
+              avec <b style={{ color: "var(--accent)" }}>+{Math.round(((data?.productBonus ?? 1.5) - 1) * 100)} % de rendement</b> par rapport aux usines fusionnées. Une seule usine par produit.
+            </p>
+            {data && data.productOptions.length === 0 && <div className="empty">Construis d&apos;abord des usines d&apos;ingrédients : les produits dont tu couvres des ingrédients apparaîtront ici.</div>}
+            <div className="rows">
+              {data?.productOptions.slice(0, 12).map((o) => (
+                <div key={o.code} className="row">
+                  {o.imageUrl ? <img className="product-img" src={o.imageUrl} alt="" style={{ width: 44, height: 44 }} /> : <span className="product-img placeholder" style={{ width: 44, height: 44 }}><CanIcon size={26} /></span>}
+                  <div style={{ minWidth: 0 }}>
+                    <div className="row-title">{o.name} <RarityTag rarity={o.rarity} /></div>
+                    <div className="row-meta">
+                      {o.total - o.missing}/{o.total} usines d&apos;ingrédients
+                      {o.preview ? <> · {fmtPts(o.consumedYield)} → <b className="arrow-gain">{fmtPts(o.preview.yieldPerHour)} pts/h</b></> : <> · manque : {o.ingredients.filter((i) => !i.factories.length).map((i) => i.name).join(", ")}</>}
+                    </div>
+                  </div>
+                  <div className="row-side">
+                    <button className="btn btn-sm btn-primary" disabled={o.missing > 0} onClick={() => setFusing(o)}>{o.missing ? `${o.total - o.missing}/${o.total}` : "Choisir les usines"}</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       {fusing && data && <FusionMenu option={fusing} bonus={data.productBonus} onClose={() => setFusing(null)} onFuse={fuse} />}
 
@@ -493,6 +534,18 @@ function Craftables({ ingredient, onCrafted }: { ingredient: { id: string; name:
       {list && list.length > 8 && (
         <button className="btn btn-sm btn-ghost" style={{ marginTop: 8 }} onClick={() => setAll(!all)}>{all ? "Voir moins" : `Voir les ${list.length} produits`}</button>
       )}
+    </div>
+  );
+}
+
+/** Indicateur « construites / maximum » avec barre de progression. */
+function Coverage({ label, n, total, unit }: { label: string; n: number; total: number; unit: string }) {
+  const pct = total ? (n / total) * 100 : 0;
+  return (
+    <div className="stat coverage" title={`${n} ${unit} sur ${total} ont leur usine (une seule usine par ${unit === "produits" ? "produit" : "ingrédient"})`}>
+      <b>{n}<small>/{total.toLocaleString("fr-FR")}</small></b>
+      <span>{label}</span>
+      <div className="progress"><span style={{ width: `${Math.max(pct, n ? 1.5 : 0)}%` }} /></div>
     </div>
   );
 }

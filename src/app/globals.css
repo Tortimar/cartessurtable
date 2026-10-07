@@ -938,3 +938,14 @@ h1 { font-weight: 600; }
 }
 .chef-meta .muted { white-space: nowrap; }
 @media (max-width: 760px) { .chef-meta { gap: 8px; } .chef-meta .pill { font-size: .8rem; } }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.section-head h2 { margin: 0; }
+@media (max-width: 760px) { .section-head .btn { flex: 1 1 100%; } }
+.stat.coverage { min-width: 170px; }
+.stat.coverage b small { font-size: .6em; color: var(--muted); font-weight: 600; margin-left: 2px; }
+.stat.coverage .progress { margin-top: 8px; height: 5px; }
+.stat.coverage .progress > span { background: var(--basil); }
+.build-panel { margin-top: 36px; }
+.build-panel .tabs .nav-badge { margin-left: 6px; }
+.build-panel [role="tabpanel"] > p.muted:first-child { margin-top: 0; }
+@media (max-width: 760px) { .build-panel .section-head .tabs { width: 100%; } .build-panel .section-head .tabs button { flex: 1; } }

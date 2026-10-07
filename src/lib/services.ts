@@ -381,6 +381,17 @@ export async function getFactories(userId: string) {
     .sort((a, b) => Math.min(b.available, FACTORY_PRODUCT_COST) - Math.min(a.available, FACTORY_PRODUCT_COST) || b.yieldPerHour - a.yieldPerHour || a.name.localeCompare(b.name));
 
   const product = await getProductFactories(userId, factories, me.coins, now);
+  // Indicateurs : ingrédients et produits équipés d'une usine, sur le total du catalogue
+  const [[{ totalIngredients }], [{ totalProducts }]] = await Promise.all([
+    db.select({ totalIngredients: sql<number>`count(*)` }).from(S.ingredients),
+    db.select({ totalProducts: sql<number>`count(*)` }).from(S.products),
+  ]);
+  const coverage = {
+    ingredients: new Set(factories.map((f) => f.ingredientId)).size,
+    totalIngredients,
+    products: new Set(product.list.map((f) => f.productCode)).size,
+    totalProducts,
+  };
 
   return {
     factories,
@@ -390,6 +401,7 @@ export async function getFactories(userId: string) {
     productFactories: product.list,
     productOptions: product.options,
     productBonus: PRODUCT_FACTORY_BONUS,
+    coverage,
     score: Math.round((factories.reduce((n, f) => n + f.yieldPerHour, 0) + product.list.reduce((n, f) => n + f.yieldPerHour, 0)) * 10) / 10,
   };
 }
@@ -646,5 +658,37 @@ export async function upgradeFactory(userId: string, factoryId: string) {
       .returning({ id: S.factories.id });
     if (upd.length === 0) fail("Amélioration déjà effectuée", 409);
     return { level, collected: ready, yieldPerHour: factoryYield(f.intervalSec, level, rarity) };
+  });
+}
+
+/** Récolte de toutes les usines (ingrédients et produits) en une seule transaction. */
+export async function collectAll(userId: string) {
+  return db.transaction(async (tx) => {
+    const now = new Date();
+    let cards = 0, products = 0, factories = 0;
+    const ing = await tx.select().from(S.factories).where(eq(S.factories.userId, userId));
+    for (const f of ing) {
+      const { ready, nextStart } = await settleFactory(tx, userId, f, now);
+      if (ready === 0) continue;
+      const upd = await tx.update(S.factories).set({ lastCollectedAt: nextStart })
+        .where(and(eq(S.factories.id, f.id), eq(S.factories.lastCollectedAt, f.lastCollectedAt))).returning({ id: S.factories.id });
+      if (upd.length === 0) fail("Récolte déjà effectuée", 409);
+      cards += ready; factories++;
+    }
+    const prod = await tx.select().from(S.productFactories).where(eq(S.productFactories.userId, userId));
+    for (const f of prod) {
+      const interval = factoryInterval(f.intervalSec, f.level), capacity = factoryCapacity(f.level);
+      const { ready } = factoryReady(interval, capacity, f.lastCollectedAt, now);
+      if (ready === 0) continue;
+      const cycles = Math.floor((now.getTime() - f.lastCollectedAt.getTime()) / (interval * 1000));
+      const next = cycles > capacity ? now : new Date(f.lastCollectedAt.getTime() + ready * interval * 1000);
+      const upd = await tx.update(S.productFactories).set({ lastCollectedAt: next })
+        .where(and(eq(S.productFactories.id, f.id), eq(S.productFactories.lastCollectedAt, f.lastCollectedAt))).returning({ id: S.productFactories.id });
+      if (upd.length === 0) fail("Récolte déjà effectuée", 409);
+      await addProduct(tx, userId, f.productCode, ready);
+      products += ready; factories++;
+    }
+    if (factories === 0) fail("Rien à récolter pour l'instant");
+    return { cards, products, factories };
   });
 }
