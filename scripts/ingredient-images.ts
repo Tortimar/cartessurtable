@@ -9,7 +9,10 @@
 const UA = "CartesSurTable/0.1 (jeu de cartes pedagogique; https://github.com)";
 const BATCH = 40;
 const GAP_MS = Number(process.env.IMG_MIN_GAP_MS ?? 250); // pause minimale entre deux requêtes vers le même site
-const RETRIES = 4;
+const RETRIES = Number(process.env.IMG_RETRIES ?? 6);
+// Adresses modifiables pour les tests
+const WIKIDATA_API = process.env.WIKIDATA_API_URL ?? "https://www.wikidata.org/w/api.php";
+const WIKIPEDIA_API = process.env.WIKIPEDIA_API_URL ?? "https://{lang}.wikipedia.org/api/rest_v1/page/summary/";
 
 export class LookupError extends Error {}
 
@@ -32,10 +35,10 @@ export const defaultFetcher: Fetcher = async (url) => {
       lastErr = `HTTP ${res.status}`;
       if (res.status !== 429 && res.status < 500) break; // erreur définitive
       const retryAfter = Number(res.headers.get("retry-after"));
-      await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 120) * 1000 : 2000 * 2 ** attempt);
+      await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 120) * 1000 : Math.min(3000 * 2 ** attempt, 60_000));
     } catch (e) {
       lastErr = (e as Error).message;
-      await sleep(2000 * 2 ** attempt);
+      await sleep(Math.min(3000 * 2 ** attempt, 60_000));
     }
   }
   throw new LookupError(`${lastErr} sur ${host}`);
@@ -48,8 +51,8 @@ export function commonsUrl(file: string, width = 400) {
 }
 
 /** Vignette de l'article Wikipédia correspondant (hors pages d'homonymie). Lève LookupError si le site ne répond pas. */
-async function wikipediaThumb(title: string, lang: "fr" | "en", get: Fetcher): Promise<string | null> {
-  const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, "_"))}`;
+export async function wikipediaThumb(title: string, lang: "fr" | "en", get: Fetcher): Promise<string | null> {
+  const url = `${WIKIPEDIA_API.replace("{lang}", lang)}${encodeURIComponent(title.replace(/ /g, "_"))}`;
   const json = (await get(url)) as { type?: string; thumbnail?: { source?: string }; originalimage?: { source?: string } } | null;
   if (!json || json.type === "disambiguation") return null;
   return json.thumbnail?.source ?? json.originalimage?.source ?? null;
@@ -92,7 +95,7 @@ export async function findIngredientImages(
   const qidFailed = new Set<string>();
   for (const part of chunk([...new Set(qids.values())], 50)) {
     try {
-      const url = `https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims&format=json&ids=${part.join("|")}`;
+      const url = `${WIKIDATA_API}?action=wbgetentities&props=claims&format=json&ids=${part.join("|")}`;
       type Claim = { mainsnak?: { datavalue?: { value?: unknown } } };
       const json = (await get(url)) as { entities?: Record<string, { claims?: Record<string, Claim[]> }> } | null;
       for (const q of part) {
@@ -134,3 +137,18 @@ export async function findIngredientImages(
   if (failed.size) log(`  ${failed.size} ingrédients n'ont pas pu être vérifiés : ils seront retentés au prochain « npm run images:fetch ».`);
   return { found, failed };
 }
+
+/** Image principale (P18) de chaque élément Wikidata, par lots de 50. Lève LookupError si Wikidata ne répond pas. */
+export async function wikidataImageFiles(qids: string[], get: Fetcher = defaultFetcher) {
+  const out = new Map<string, string>();
+  for (const part of chunk([...new Set(qids)], 50)) {
+    type Claim = { mainsnak?: { datavalue?: { value?: unknown } } };
+    const json = (await get(`${WIKIDATA_API}?action=wbgetentities&props=claims&format=json&ids=${part.join("|")}`)) as { entities?: Record<string, { claims?: Record<string, Claim[]> }> } | null;
+    for (const q of part) {
+      const v = json?.entities?.[q]?.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
+      if (typeof v === "string") out.set(q, commonsUrl(v));
+    }
+  }
+  return out;
+}
+export type { Fetcher };

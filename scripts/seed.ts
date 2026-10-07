@@ -5,7 +5,9 @@ import { eq, sql } from "drizzle-orm";
 import { db, schema } from "../src/db";
 import { fetchOffPage, ingredientNames, MIN_GAP_MS, normalizeProduct, parsePages, type CleanProduct, type RawProduct } from "./import-off";
 import { recomputeRarities } from "./rarity";
-import { fetchMissingImages } from "./fetch-images";
+import { loadTaxonomy } from "./taxonomy";
+import { CardResolver } from "./cards";
+import { aliasRows, resolveIngredients, saveCatalog, toCatalog } from "./catalog";
 
 /*
  * Import des produits Open Food Facts.
@@ -42,7 +44,7 @@ async function countProducts() {
 
 function fromSample(): CleanProduct[] {
   const raw = JSON.parse(readFileSync(join(__dirname, "sample-products.json"), "utf8")) as RawProduct[];
-  return raw.map((p) => normalizeProduct(p)).filter((p): p is CleanProduct => p !== null);
+  return raw.map((p) => normalizeProduct(p, false)).filter((p): p is CleanProduct => p !== null);
 }
 
 async function importFromOff() {
@@ -55,6 +57,8 @@ async function importFromOff() {
   console.log(`Import de ${pages.length} page(s) Open Food Facts (${country}) : ${pages.join(", ")}`);
   console.log(`Une page toutes les ${MIN_GAP_MS / 1000} s pour respecter la limite de l'API : environ ${minutes} min, davantage si l'API ralentit.\n`);
 
+  const tax = await loadTaxonomy(console.log);
+  const resolver = new CardResolver(tax);
   const ok: number[] = [];
   const failed: { page: number; reason: string }[] = [];
   const empty: number[] = [];
@@ -69,11 +73,14 @@ async function importFromOff() {
         console.log(`${label} : vide (plus de résultats à cette profondeur)`);
         continue;
       }
-      const prods = raw.map(normalizeProduct).filter((p): p is CleanProduct => p !== null);
-      if (prods.length) await saveProducts(prods);
-      saved += prods.length;
+      // Produits en français avec photo ; ingrédients regroupés en cartes illustrées
+      const prods = raw.map((p) => normalizeProduct(p, true)).filter((p): p is CleanProduct => p !== null);
+      const res = await resolveIngredients(prods.flatMap((p) => p.ingredients.map((i) => i.id)), resolver, true);
+      const { products, cards } = toCatalog(prods, res);
+      if (products.length) await saveCatalog(products, cards, aliasRows(res));
+      saved += products.length;
       ok.push(page);
-      console.log(`${label} : ${raw.length} reçus, ${prods.length} retenus (produits en base : ${await countProducts()})`);
+      console.log(`${label} : ${raw.length} reçus, ${products.length} retenus (produits en base : ${await countProducts()})`);
     } catch (e) {
       failed.push({ page, reason: (e as Error).message });
       console.warn(`${label} : ÉCHEC — ${(e as Error).message}`);
@@ -107,15 +114,7 @@ async function main() {
   const [{ i }] = await db.select({ i: sql<number>`count(*)` }).from(schema.ingredients);
   console.log(`${n} produits et ${i} ingrédients en base.`);
 
-  if (offline) {
-    console.log("Photos des ingrédients : lance « npm run images:fetch » une fois connecté.");
-  } else {
-    try {
-      await fetchMissingImages();
-    } catch (e) {
-      console.warn(`Photos non récupérées (${(e as Error).message}) — relance « npm run images:fetch » plus tard.`);
-    }
-  }
+  if (offline) console.log("Photos des ingrédients : lance « npm run images:fetch » une fois connecté.");
   console.log("Terminé.");
 }
 

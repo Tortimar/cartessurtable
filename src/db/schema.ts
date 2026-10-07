@@ -338,3 +338,12 @@ export const chefDeliveries = sqliteTable(
   },
   (t) => [uniqueIndex("chef_delivery_once_idx").on(t.questId, t.userId)],
 );
+
+/* Correspondance « ingrédient Open Food Facts → carte du jeu » (regroupement des variantes).
+   Gardée en base pour que les cartes restent stables d'un import à l'autre. card_id null = ingrédient écarté. */
+export const ingredientAliases = sqliteTable("ingredient_aliases", {
+  rawId: text("raw_id").primaryKey(), // ex. « en:iodised-salt »
+  cardId: text("card_id"), // ex. « en:salt »
+  reason: text("reason"), // pourquoi il est écarté : inconnu, additif, sans-photo…
+  updatedAt: ts("updated_at").notNull().$defaultFn(now),
+});

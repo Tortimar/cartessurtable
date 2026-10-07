@@ -13,6 +13,7 @@
     "db:seed:offline": "tsx scripts/seed.ts --offline",
     "rarity:recompute": "tsx scripts/recompute-rarity.ts",
     "images:fetch": "tsx scripts/fetch-images.ts",
+    "cards:rebuild": "tsx scripts/rebuild-cards.ts",
     "give-all": "tsx scripts/give-all.ts",
     "setup": "npm run db:migrate && npm run db:seed"
   },

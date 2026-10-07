@@ -19,12 +19,20 @@ npm run dev                 # http://localhost:3000
 
 - `npm run db:migrate` crée ou met à jour les tables à partir des fichiers SQL du dossier `drizzle/`. Le serveur (`npm run dev` / `npm start`) l'applique aussi automatiquement au démarrage (`src/instrumentation.ts`).
 - `npm run db:seed` importe depuis l'API OFF les pages listées dans `OFF_SEED_PAGES` (par défaut `1-10,20,30,60,120`, soit jusqu'à 1 400 produits ; 100 produits par page, triés par nombre de scans). Relançable à volonté : les produits sont mis à jour, pas dupliqués.
-  - L'API de recherche OFF limite à environ 10 requêtes par minute : l'import fait **une page toutes les 7 s** (≈ 2 min pour 14 pages), attend jusqu'à 90 s une réponse, et réessaie 5 fois (pauses de 10 s à 90 s, ou le délai demandé par l'API si elle signale trop de requêtes).
+  - **Cartes propres** : seuls les produits ayant un nom français et une photo sont gardés. Les ingrédients passent par la taxonomie d'Open Food Facts (téléchargée et gardée une semaine dans `data/`) : les variantes sont regroupées (« Sel iodé », « Sel marin » → **Sel** ; « Lait écrémé » → **Lait** ; tous les arômes → **Arôme**), mais un complément garde sa carte (« Farine de riz », « Lait de chèvre », « Lait en poudre »). Chaque carte a un nom français et une photo (Wikidata, puis Wikipédia FR, puis EN ; à défaut, la photo du parent direct). Sans photo, l'ingrédient est retiré de la recette ; additifs (E…), vitamines et minéraux ne sont pas des cartes. Un produit doit garder au moins 2 cartes.
+  - Les correspondances « ingrédient OFF → carte » sont gardées en base (`ingredient_aliases`) : un nouvel import réutilise les mêmes cartes, rien n'est à refaire.
+  - L'API de recherche OFF limite à environ 10 requêtes par minute et répond souvent **503** quand elle est surchargée : l'import fait **une page toutes les 7 s**, attend jusqu'à 90 s une réponse, et réessaie 8 fois (pauses de 15 s à 2 min, soit une dizaine de minutes de patience par page).
+  - Chaque page reçue est **gardée 3 jours dans `data/off-pages/`**, et chaque photo trouvée dans `data/photos.json` : relancer la même commande après des erreurs ne redemande que ce qui manque. Supprimer ces fichiers force un téléchargement complet.
   - Chaque page est **enregistrée dès sa réception** : un arrêt ou une panne en cours de route ne fait rien perdre.
   - À la fin, un bilan liste les pages en échec et la commande pour ne relancer qu'elles : `npm run db:seed -- --pages=30,60`.
 - `npm run db:seed:offline` charge un petit jeu de 25 produits de démonstration (`scripts/sample-products.json`), utile sans connexion. Si l'API OFF est injoignable, le seed normal bascule automatiquement dessus.
 - `npm run rarity:recompute` recalcule toutes les raretés (après un import supplémentaire, par exemple).
-- `npm run images:fetch` cherche une photo pour les ingrédients qui n'en ont pas (lancé automatiquement par le seed). Les requêtes sont espacées et réessayées si un site limite le débit ; un ingrédient dont la recherche a échoué n'est pas marqué et sera retenté au lancement suivant. Ajoute `-- --all` pour retenter aussi ceux déjà vérifiés sans photo.
+- `npm run cards:rebuild` **convertit une base existante** au nouveau format de cartes (regroupées, en français, toutes illustrées). Par défaut c'est une **simulation** : elle affiche le bilan (cartes avant/après, exemples de regroupements, ce que chaque joueur reçoit) sans rien modifier. Pour appliquer : `npm run cards:rebuild -- --apply` (une sauvegarde JSON est d'abord écrite dans `data/`, puis tout est appliqué d'un bloc : tout ou rien). Pour les joueurs, **aucune pièce ni carte en plus** :
+  - les ventes, enchères, demandes et échanges en cours sont annulés et leur contenu rendu à son propriétaire (cartes au vendeur, pièces bloquées à l'enchérisseur, au demandeur ou à l'expéditeur) ;
+  - les cartes fusionnent (3 « Sel iodé » + 2 « Sel » = 5 « Sel ») ;
+  - une carte, un produit ou une usine qui disparaît est supprimé, sans compensation ; deux usines qui tombent sur la même carte : seule la plus haute est gardée ;
+  - la production en attente des usines gardées se récolte normalement ; les quêtes du cuisinier et les offres de la banque sont régénérées.
+- `npm run images:fetch` cherche une photo pour les ingrédients qui n'en ont pas (utile seulement après `db:seed:offline` : l'import en ligne n'enregistre que des cartes illustrées). Les requêtes sont espacées et réessayées si un site limite le débit ; un ingrédient dont la recherche a échoué n'est pas marqué et sera retenté au lancement suivant. Ajoute `-- --all` pour retenter aussi ceux déjà vérifiés sans photo.
 - `npm run give-all -- <pseudo> [quantité]` **(test)** ajoute 1 exemplaire (ou la quantité indiquée) de chaque ingrédient au compte. Le compte doit déjà exister.
 - Après une modification de `src/db/schema.ts` : `npm run db:generate` puis `npm run db:migrate`.
 
@@ -125,6 +133,14 @@ Le jeu n'a aucune tâche de fond (boosters, usines et enchères sont calculés �
 3. **Code sur GitHub** — dépôt privé, par exemple avec GitHub Desktop. `.gitignore` exclut déjà `.env`, la base locale, `node_modules` et `.next`.
 4. **Render** — New → Blueprint → choisir le dépôt : `render.yaml` crée le service (build `npm install && npm run build`, démarrage `npm start`, Node 22, `SESSION_SECRET` généré). Saisir `DATABASE_URL` et `DATABASE_AUTH_TOKEN` quand Render les demande.
 5. Chaque `git push` redéploie automatiquement. Les migrations s'appliquent seules au démarrage.
+6. **Convertir la base en ligne** aux cartes regroupées (une seule fois) : publier d'abord le nouveau code (`git push`), puis dans cmd, comme à l'étape 2 :
+   ```bat
+   set DATABASE_URL=libsql://ma-base.turso.io
+   set DATABASE_AUTH_TOKEN=le-jeton
+   npm run cards:rebuild
+   npm run cards:rebuild -- --apply
+   ```
+   La première commande est une simulation à relire ; la seconde applique. Les pages profondes (20, 30, 60, 120…) échouent souvent en 503 : ce n'est pas bloquant, les produits déjà en base sont alors récupérés un par un par leur code-barres (API produit, moins chargée ; quelques minutes). Si même cette étape échoue, rien n'est modifié : relance la même commande, tout ce qui a déjà été reçu est réutilisé. Pas besoin de redémarrer Render ensuite.
 
 Le compte de test (`give-all`) et les autres scripts fonctionnent aussi sur la base en ligne avec les deux variables ci-dessus.
 

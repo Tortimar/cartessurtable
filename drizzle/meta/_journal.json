@@ -71,6 +71,13 @@
       "when": 1791376203764,
       "tag": "0009_chef_quests",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1791381541550,
+      "tag": "0010_ingredient_aliases",
+      "breakpoints": true
     }
   ]
 }
