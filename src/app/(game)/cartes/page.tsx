@@ -24,6 +24,13 @@ export default function CardsPage() {
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Selected | null>(null);
   const reqId = useRef(0);
+  // Ouverture directe d'une fiche : /cartes?ing=<id> ou /cartes?produit=<code>
+  useEffect(() => {
+    const u = new URLSearchParams(window.location.search);
+    const ing = u.get("ing"), prod = u.get("produit");
+    if (ing) setSelected({ kind: "ingredient", id: ing });
+    else if (prod) setSelected({ kind: "product", code: prod });
+  }, []);
 
   const load = useCallback(async (p: number) => {
     const id = ++reqId.current;

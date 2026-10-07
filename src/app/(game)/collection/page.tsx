@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { api, IngredientCard, RarityFilter, RarityTag, useGame } from "@/components/ui";
+import { api, IngredientCard, Modal, RarityBadge, RarityFilter, RarityTag, Thumb, useGame } from "@/components/ui";
+import { Craftables } from "@/components/Craftables";
 import { CanIcon } from "@/components/icons";
 import { SellModal, type Sellable } from "@/components/SellModal";
 import { RARITIES } from "@/lib/game";
@@ -22,6 +23,7 @@ export default function CollectionPage() {
   const [sort, setSort] = useState<"name" | "rarity" | "qty">("rarity");
   const [selling, setSelling] = useState<Sellable | null>(null);
   const [sellingProduct, setSellingProduct] = useState<Sellable | null>(null);
+  const [viewing, setViewing] = useState<string | null>(null); // ingrédient dont on affiche les produits
 
   const load = useCallback(() => api<Data>("/api/collection").then(setData).catch((e: Error) => toast(e.message, "error")), [toast]);
   useEffect(() => { load(); }, [load]);
@@ -64,8 +66,8 @@ export default function CollectionPage() {
           )}
           <div className="grid">
             {items.map((i) => (
-              <IngredientCard key={i.id} ing={i} qty={i.quantity}>
-                <button className="btn btn-sm" onClick={() => setSelling(i)}>Vendre</button>
+              <IngredientCard key={i.id} ing={i} qty={i.quantity} onClick={() => setViewing(i.id)}>
+                <button className="btn btn-sm" onClick={(e) => { e.stopPropagation(); setSelling(i); }}>Vendre</button>
               </IngredientCard>
             ))}
           </div>
@@ -101,6 +103,27 @@ export default function CollectionPage() {
       )}
 
       {selling && <SellModal item={selling} onClose={() => setSelling(null)} onDone={load} />}
+      {viewing && data && (() => {
+        const ing = data.ingredients.find((x) => x.id === viewing);
+        if (!ing) return null;
+        return (
+          <Modal title={ing.name} onClose={() => setViewing(null)} wide>
+            <div className="modal-head">
+              <Thumb ing={ing} />
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <RarityBadge rarity={ing.rarity} />
+                <span className="pill">Tu en as ×{ing.quantity}</span>
+                <button className="btn btn-sm" onClick={() => { setViewing(null); setSelling(ing); }}>Vendre</button>
+                <Link className="btn btn-sm btn-ghost" href={`/cartes?ing=${encodeURIComponent(ing.id)}`}>Fiche complète</Link>
+              </div>
+            </div>
+            <Craftables key={ing.id} ingredient={ing} onCrafted={load} title={<>Produits avec « {ing.name} »</>} initial={10} />
+            <div className="toolbar" style={{ justifyContent: "flex-end", marginBottom: 0 }}>
+              <button className="btn btn-ghost" onClick={() => setViewing(null)}>Fermer</button>
+            </div>
+          </Modal>
+        );
+      })()}
       {sellingProduct && <SellModal kind="product" item={sellingProduct} onClose={() => setSellingProduct(null)} onDone={load} />}
     </>
   );
